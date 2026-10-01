@@ -14,6 +14,7 @@ export default function CreateTransaction() {
     const [customerId, setCustomerId] = useState('');
     const [transactionDate, setTransactionDate] = useState(today());
     const [notes, setNotes] = useState('');
+    const [paymentStatus, setPaymentStatus] = useState('unpaid');
     const [headerSaved, setHeaderSaved] = useState(false);
 
     // -- State: Data
@@ -85,6 +86,7 @@ export default function CreateTransaction() {
                     setCustomerId(data.customer_id?.toString() || '');
                     setTransactionDate(data.transaction_date?.split('T')[0] || today());
                     setNotes(data.notes || '');
+                    setPaymentStatus(data.payment_status || 'unpaid');
                     setItems(data.items || []);
                     setTotalAmount(data.total_amount || 0);
                     setHeaderSaved(true);
@@ -111,7 +113,8 @@ export default function CreateTransaction() {
                 const r = await api.post('/transactions', {
                     customer_id: Number(customerId),
                     transaction_date: transactionDate,
-                    notes
+                    notes,
+                    payment_status: paymentStatus
                 });
                 setTransactionId(r.data.id);
                 setTransactionNumber(r.data.transaction_number);
@@ -121,13 +124,27 @@ export default function CreateTransaction() {
                 await api.put(`/transactions/${transactionId}`, {
                     customer_id: Number(customerId),
                     transaction_date: transactionDate,
-                    notes
+                    notes,
+                    payment_status: paymentStatus
                 });
             }
         } catch (e) {
             setError(e.response?.data?.message || 'Gagal menyimpan bon.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const updatePaymentStatus = async (status) => {
+        setPaymentStatus(status);
+        if (transactionId) {
+            try {
+                await api.put(`/transactions/${transactionId}`, {
+                    payment_status: status
+                });
+            } catch (e) {
+                setError('Gagal mengubah status pembayaran.');
+            }
         }
     };
 
@@ -464,14 +481,41 @@ export default function CreateTransaction() {
                         </div>
                     </div>
 
-                    {/* 4. Total */}
-                    <div className="flex items-center justify-between py-4 mb-8">
-                        <span className="text-sm font-bold text-gray-900 uppercase tracking-wider">Total</span>
-                        <span className="text-2xl font-bold text-gray-900">{formatRupiah(totalAmount)}</span>
+                    {/* 4. Total & Status Pembayaran */}
+                    <div className="border-t border-gray-200 pt-4 mb-6">
+                        <div className="flex items-center justify-between py-3">
+                            <span className="text-sm font-bold text-gray-900 uppercase tracking-wider">Total</span>
+                            <span className="text-2xl font-bold text-gray-900">{formatRupiah(totalAmount)}</span>
+                        </div>
+                        <div className="flex items-center justify-between py-3 border-t border-gray-100">
+                            <span className="text-sm font-medium text-gray-700">Status Pembayaran</span>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => updatePaymentStatus('paid')}
+                                    className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${paymentStatus === 'paid' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-300 hover:border-green-400 hover:text-green-600'}`}
+                                >
+                                    Sudah Dibayar
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => updatePaymentStatus('unpaid')}
+                                    className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${paymentStatus === 'unpaid' ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-500 border-gray-300 hover:border-red-400 hover:text-red-500'}`}
+                                >
+                                    Berhutang
+                                </button>
+                            </div>
+                        </div>
+                        {paymentStatus === 'paid' && (
+                            <div className="text-right text-xs text-green-600 font-medium pb-1">&#10003; Transaksi ini sudah lunas</div>
+                        )}
+                        {paymentStatus === 'unpaid' && (
+                            <div className="text-right text-xs text-red-500 font-medium pb-1">&#9888; Masih ada hutang yang belum dibayar</div>
+                        )}
                     </div>
 
                     {/* 5. Action */}
-                    <div className="pt-4">
+                    <div className="pt-2">
                         <button
                             onClick={finalizeBon}
                             disabled={items.length === 0}

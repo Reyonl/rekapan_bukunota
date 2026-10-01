@@ -15,6 +15,7 @@ class Transaction extends Model
         'transaction_date',
         'total_amount',
         'status',
+        'payment_status',
         'notes',
     ];
 

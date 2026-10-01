@@ -8,6 +8,9 @@ export default function Dashboard() {
     const [stats, setStats] = useState({
         today_count: 0,
         today_total: 0,
+        lunas_hari_ini: 0,
+        lunas_total: 0,
+        masih_hutang: 0,
         customer_count: 0,
         recent: []
     });
@@ -20,6 +23,9 @@ export default function Dashboard() {
                 setStats({
                     today_count: data.stats?.bon_hari_ini ?? 0,
                     today_total: data.stats?.total_hari_ini ?? 0,
+                    lunas_hari_ini: data.stats?.lunas_hari_ini ?? 0,
+                    lunas_total: data.stats?.lunas_total ?? 0,
+                    masih_hutang: data.stats?.masih_hutang ?? 0,
                     customer_count: data.stats?.total_pelanggan ?? 0,
                     recent: data.recent_transactions ?? []
                 });
@@ -59,14 +65,22 @@ export default function Dashboard() {
             </div>
 
             {/* Stats Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10 border-t border-gray-200 pt-8">
-                <div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 border-t border-gray-200 pt-8">
+                <div className="bg-white border border-gray-100 rounded-lg p-4 shadow-sm">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Bon Hari Ini</p>
-                    <p className="text-3xl font-bold text-gray-900">{stats.today_count}</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.today_count}</p>
                 </div>
-                <div>
+                <div className="bg-white border border-gray-100 rounded-lg p-4 shadow-sm">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Total Hari Ini</p>
-                    <p className="text-3xl font-bold text-gray-900">{formatRupiah(stats.today_total)}</p>
+                    <p className="text-2xl font-bold text-gray-900">{formatRupiah(stats.today_total)}</p>
+                </div>
+                <div className="bg-white border border-green-200 rounded-lg p-4 shadow-sm">
+                    <p className="text-xs font-semibold text-green-700 uppercase tracking-wider mb-1">Sudah Lunas</p>
+                    <p className="text-2xl font-bold text-green-700">{formatRupiah(stats.lunas_total)}</p>
+                </div>
+                <div className="bg-white border border-red-200 rounded-lg p-4 shadow-sm">
+                    <p className="text-xs font-semibold text-red-600 uppercase tracking-wider mb-1">Masih Hutang</p>
+                    <p className="text-2xl font-bold text-red-600">{formatRupiah(stats.masih_hutang)}</p>
                 </div>
             </div>
 
@@ -103,8 +117,15 @@ export default function Dashboard() {
                                             {t.customer_name}
                                             <div className="text-xs text-gray-500 font-normal mt-0.5">{t.transaction_date}</div>
                                         </td>
-                                        <td className="px-4 py-3 text-right text-gray-900 font-medium">
-                                            {formatRupiah(t.total_amount)}
+                                        <td className="px-4 py-3 text-right">
+                                            <div className="text-gray-900 font-medium">{formatRupiah(t.total_amount)}</div>
+                                            <div className="mt-0.5">
+                                                {t.payment_status === 'paid' ? (
+                                                    <span className="inline-flex items-center text-[10px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">Lunas</span>
+                                                ) : (
+                                                    <span className="inline-flex items-center text-[10px] font-semibold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">Hutang</span>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

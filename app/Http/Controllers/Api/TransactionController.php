@@ -58,6 +58,7 @@ class TransactionController extends Controller
             ...$validated,
             'transaction_number' => $transactionNumber,
             'status' => 'draft',
+            'payment_status' => 'unpaid',
             'total_amount' => 0,
         ]);
 
@@ -79,6 +80,7 @@ class TransactionController extends Controller
             'customer_id'      => 'sometimes|exists:customers,id',
             'transaction_date' => 'sometimes|date',
             'status'           => 'sometimes|in:draft,completed',
+            'payment_status'   => 'sometimes|in:unpaid,paid',
             'notes'            => 'nullable|string|max:500',
         ]);
 
