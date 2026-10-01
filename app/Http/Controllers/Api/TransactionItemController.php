@@ -17,12 +17,16 @@ class TransactionItemController extends Controller
             'product_name' => 'required|string|max:255',
             'description'  => 'nullable|string|max:255',
             'quantity'     => 'required|integer|min:1',
-            'unit'         => 'required|string|max:50',
-            'unit_price'   => 'required|integer|min:0',
-            'subtotal'     => 'nullable|integer|min:0',
+            'unit'         => 'nullable|string|max:50',
+            'unit_price'   => 'required|integer',
+            'subtotal'     => 'nullable|integer',
         ]);
 
-        if (!isset($validated['subtotal'])) {
+        if (!isset($validated['unit'])) {
+            $validated['unit'] = 'pcs';
+        }
+
+        if (!isset($validated['subtotal']) || $validated['subtotal'] == 0) {
             $validated['subtotal'] = $validated['quantity'] * $validated['unit_price'];
         }
 
@@ -34,12 +38,13 @@ class TransactionItemController extends Controller
     public function update(Request $request, TransactionItem $transactionItem): JsonResponse
     {
         $validated = $request->validate([
+            'product_id'   => 'nullable|exists:products,id',
             'product_name' => 'sometimes|required|string|max:255',
             'description'  => 'nullable|string|max:255',
             'quantity'     => 'sometimes|required|integer|min:1',
-            'unit'         => 'sometimes|required|string|max:50',
-            'unit_price'   => 'sometimes|required|integer|min:0',
-            'subtotal'     => 'nullable|integer|min:0',
+            'unit'         => 'nullable|string|max:50',
+            'unit_price'   => 'sometimes|required|integer',
+            'subtotal'     => 'nullable|integer',
         ]);
 
         if (!isset($validated['subtotal'])) {

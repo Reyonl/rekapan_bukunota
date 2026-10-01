@@ -30,11 +30,12 @@ export default function CreateTransaction() {
     // Form Item
     const [formItem, setFormItem] = useState(null); // Selected product object
     const [formDescription, setFormDescription] = useState('');
-    const [formQty, setFormQty] = useState('');
+    const [formQty, setFormQty] = useState('1');
     const [formPrice, setFormPrice] = useState('');
     const [formSubtotal, setFormSubtotal] = useState('');
     const [formManualName, setFormManualName] = useState('');
     const [isManualItem, setIsManualItem] = useState(false);
+    const [editingItemId, setEditingItemId] = useState(null);
     
     // Focus refs
     const itemSelectRef = useRef(null);
@@ -56,6 +57,27 @@ export default function CreateTransaction() {
             subtotal = (promoQty * 5000) + (remainder * unitPrice);
         }
         return subtotal || 0;
+    };
+
+    const handlePriceChange = (e) => {
+        let raw = e.target.value;
+        raw = raw.replace(/[^\d-]/g, '');
+        if (raw.lastIndexOf('-') > 0) {
+            raw = raw.replace(/-/g, '');
+        }
+        if (raw !== '0' && raw !== '-' && raw !== '-0') {
+             raw = raw.replace(/^(-?)0+(?=\d)/, '$1');
+        }
+        setFormPrice(raw);
+    };
+
+    const formatPriceDisplay = (val) => {
+        if (val === '' || val === '-' || val === undefined || val === null) return val;
+        if (val === '-0') return '-0';
+        let isNeg = val.toString().startsWith('-');
+        let numStr = val.toString().replace('-', '');
+        let formatted = Number(numStr).toLocaleString('id-ID');
+        return isNeg ? '-' + formatted : formatted;
     };
 
     // Auto calculate subtotal on form change
@@ -155,21 +177,33 @@ export default function CreateTransaction() {
         const sub = Number(formSubtotal);
         const name = isManualItem ? formManualName : formItem?.name;
         
-        if (!name || qty <= 0 || price < 0) {
+        if (!name || qty <= 0 || isNaN(price)) {
             setError('Item, Qty, dan Harga harus valid.');
             return;
         }
         
         setError('');
         try {
-            await api.post(`/transactions/${transactionId}/items`, {
-                product_id: isManualItem ? null : formItem.id,
-                product_name: name,
-                description: formDescription,
-                quantity: qty,
-                unit_price: price,
-                subtotal: sub
-            });
+            if (editingItemId) {
+                await api.put(`/transaction-items/${editingItemId}`, {
+                    product_id: isManualItem ? null : (formItem ? formItem.id : null),
+                    product_name: name,
+                    description: formDescription,
+                    quantity: qty,
+                    unit_price: price,
+                    subtotal: sub
+                });
+                setEditingItemId(null);
+            } else {
+                await api.post(`/transactions/${transactionId}/items`, {
+                    product_id: isManualItem ? null : formItem.id,
+                    product_name: name,
+                    description: formDescription,
+                    quantity: qty,
+                    unit_price: price,
+                    subtotal: sub
+                });
+            }
             
             // Refresh transaction to get updated items & total
             const r = await api.get(`/transactions/${transactionId}`);
@@ -180,14 +214,34 @@ export default function CreateTransaction() {
             setFormItem(null);
             setFormManualName('');
             setFormDescription('');
-            setFormQty('');
+            setFormQty('1');
             setFormPrice('');
             setFormSubtotal('');
             
             if (itemSelectRef.current) itemSelectRef.current.focus();
         } catch (e) {
-            setError('Gagal menambah item.');
+            setError('Gagal menyimpan item.');
         }
+    };
+
+    const handleEditItem = (item) => {
+        setEditingItemId(item.id);
+        if (item.product_id) {
+            setIsManualItem(false);
+            const prod = products.find(p => p.id === item.product_id);
+            setFormItem(prod || { id: item.product_id, name: item.product_name });
+        } else {
+            setIsManualItem(true);
+            setFormManualName(item.product_name);
+            setFormItem(null);
+        }
+        setFormDescription(item.description || '');
+        setFormQty(item.quantity.toString());
+        setFormPrice(item.unit_price.toString());
+        setFormSubtotal(item.subtotal.toString());
+        
+        // Scroll to form smoothly
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const removeItem = async (itemId) => {
@@ -292,9 +346,11 @@ export default function CreateTransaction() {
                     
                     {/* 2. Form Input */}
                     <div className="mb-10">
-                        <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Tambah Catatan</h2>
-                        <form onSubmit={addItem} className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
-                            <div className="sm:col-span-4">
+                        <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">
+                            {editingItemId ? 'Edit Item' : 'Tambah Catatan'}
+                        </h2>
+                        <form onSubmit={addItem} className="grid grid-cols-12 gap-4 items-end">
+                            <div className="col-span-12 sm:col-span-6 md:col-span-6">
                                 <label className="block text-sm font-medium text-gray-900 mb-1.5">Item</label>
                                 {isManualItem ? (
                                     <div className="flex gap-2">
@@ -348,7 +404,7 @@ export default function CreateTransaction() {
                                     />
                                 )}
                             </div>
-                            <div className="col-span-2 sm:col-span-3">
+                            <div className="col-span-12 sm:col-span-6 md:col-span-6">
                                 <label className="block text-sm font-medium text-gray-900 mb-1.5">Keterangan <span className="text-gray-400 font-normal">(opsional)</span></label>
                                 <input
                                     type="text"
@@ -358,7 +414,7 @@ export default function CreateTransaction() {
                                     className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
                                 />
                             </div>
-                            <div className="col-span-1 sm:col-span-1">
+                            <div className="col-span-4 sm:col-span-3 md:col-span-2">
                                 <label className="block text-sm font-medium text-gray-900 mb-1.5">Qty</label>
                                 <input
                                     type="number"
@@ -369,23 +425,40 @@ export default function CreateTransaction() {
                                     className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-gray-400 focus:outline-none text-right"
                                 />
                             </div>
-                            <div className="col-span-1 sm:col-span-2">
+                            <div className="col-span-8 sm:col-span-6 md:col-span-7">
                                 <label className="block text-sm font-medium text-gray-900 mb-1.5">Harga</label>
                                 <input
-                                    type="number"
-                                    value={formPrice}
-                                    onChange={e => setFormPrice(e.target.value)}
-                                    min="0"
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={formatPriceDisplay(formPrice)}
+                                    onChange={handlePriceChange}
                                     className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-gray-400 focus:outline-none text-right"
                                 />
                             </div>
-                            <div className="col-span-2 sm:col-span-2">
+                            <div className="col-span-12 sm:col-span-3 md:col-span-3">
                                 <button
                                     type="submit"
-                                    className="w-full py-2 bg-gray-100 text-gray-900 text-sm font-medium rounded hover:bg-gray-200 border border-gray-200"
+                                    className={`w-full py-2 text-sm font-medium rounded border ${editingItemId ? 'bg-brand-50 text-brand-700 border-brand-200 hover:bg-brand-100' : 'bg-gray-100 text-gray-900 border-gray-200 hover:bg-gray-200'}`}
                                 >
-                                    + Tambah
+                                    {editingItemId ? '✓ Update' : '+ Tambah'}
                                 </button>
+                                {editingItemId && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setEditingItemId(null);
+                                            setFormItem(null);
+                                            setFormManualName('');
+                                            setFormDescription('');
+                                            setFormQty('1');
+                                            setFormPrice('');
+                                            setFormSubtotal('');
+                                        }}
+                                        className="w-full mt-2 py-2 bg-white text-gray-500 text-xs font-medium rounded border border-gray-200 hover:bg-gray-50"
+                                    >
+                                        Batal Edit
+                                    </button>
+                                )}
                             </div>
                         </form>
                     </div>
@@ -434,13 +507,20 @@ export default function CreateTransaction() {
                                                 <td className="py-3 pl-4 pr-8 text-right font-medium text-gray-900">
                                                     {formatRupiah(item.subtotal)}
                                                 </td>
-                                                <td className="py-3 text-right">
+                                                <td className="py-3 text-right whitespace-nowrap">
+                                                    <button
+                                                        onClick={() => handleEditItem(item)}
+                                                        className={`text-xs font-medium mr-3 transition-colors md:opacity-0 md:group-hover:opacity-100 ${editingItemId === item.id ? 'text-blue-600' : 'text-gray-400 hover:text-blue-600'}`}
+                                                        aria-label="Edit item"
+                                                    >
+                                                        Edit
+                                                    </button>
                                                     <button
                                                         onClick={() => removeItem(item.id)}
                                                         className="text-gray-400 hover:text-red-600 transition-colors md:opacity-0 md:group-hover:opacity-100"
                                                         aria-label="Hapus item"
                                                     >
-                                                        ✕
+                                                        &times;
                                                     </button>
                                                 </td>
                                             </tr>
@@ -468,12 +548,20 @@ export default function CreateTransaction() {
                                         </div>
                                         <div className="text-right">
                                             <div className="font-medium text-gray-900">{formatRupiah(item.subtotal)}</div>
-                                            <button
-                                                onClick={() => removeItem(item.id)}
-                                                className="text-xs text-gray-400 hover:text-red-600 mt-1"
-                                            >
-                                                Hapus
-                                            </button>
+                                            <div className="flex gap-2 justify-end mt-1">
+                                                <button
+                                                    onClick={() => handleEditItem(item)}
+                                                    className={`text-xs font-medium ${editingItemId === item.id ? 'text-blue-600' : 'text-gray-400 hover:text-blue-600'}`}
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    onClick={() => removeItem(item.id)}
+                                                    className="text-xs text-gray-400 hover:text-red-600"
+                                                >
+                                                    Hapus
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))
