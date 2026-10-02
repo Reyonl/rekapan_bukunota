@@ -147,7 +147,7 @@ export default function TransactionList() {
                 ) : (
                     <>
                         {/* Desktop table */}
-                        <div className="hidden md:block overflow-x-auto">
+                        <div className="hidden xl:block overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead>
                                     <tr className="border-b border-gray-100 bg-gray-50/60">
@@ -182,7 +182,7 @@ export default function TransactionList() {
                         </div>
 
                         {/* Mobile cards */}
-                        <ul className="md:hidden divide-y divide-gray-100">
+                        <ul className="xl:hidden divide-y divide-gray-100">
                             {transactions.map((t) => (
                                 <li key={t.id} className="p-4">
                                     <button onClick={() => navigate(`/bon/${t.id}`)} className="w-full text-left">

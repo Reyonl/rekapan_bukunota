@@ -46,7 +46,7 @@ export default function Modal({ open, onClose, title, children, size = 'md' }) {
                 aria-modal="true"
                 aria-label={title}
                 tabIndex={-1}
-                className={`relative w-full ${widths[size]} bg-white rounded-t-2xl sm:rounded-2xl shadow-xl animate-toast-in max-h-[88vh] overflow-y-auto focus:outline-none`}
+                className={`relative w-full ${widths[size]} max-h-[92vh] sm:max-h-[88vh] bg-white rounded-t-2xl sm:rounded-2xl shadow-xl animate-toast-in overflow-y-auto focus:outline-none`}
             >
                 {title && (
                     <div className="flex items-center justify-between px-5 pt-4 pb-1">

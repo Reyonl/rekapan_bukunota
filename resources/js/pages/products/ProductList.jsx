@@ -378,7 +378,7 @@ export default function ProductList() {
                 ) : (
                     <>
                         {/* Desktop */}
-                        <div className="hidden sm:block overflow-x-auto">
+                        <div className="hidden xl:block overflow-x-auto">
                             <table className="w-full text-left border-collapse text-sm">
                                 <thead>
                                     <tr className="border-b border-gray-100 bg-gray-50/60">
@@ -411,7 +411,7 @@ export default function ProductList() {
                         </div>
 
                         {/* Mobile */}
-                        <ul className="sm:hidden divide-y divide-gray-100">
+                        <ul className="xl:hidden divide-y divide-gray-100">
                             {products.map((p) => {
                                 const cat = categories.find((c) => c.id === p.category_id);
                                 return (

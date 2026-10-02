@@ -188,7 +188,7 @@ export default function CustomerList() {
                 ) : (
                     <>
                         {/* Desktop */}
-                        <div className="hidden md:block overflow-x-auto">
+                        <div className="hidden xl:block overflow-x-auto">
                             <table className="w-full text-sm text-left whitespace-nowrap">
                                 <thead>
                                     <tr className="border-b border-gray-100 bg-gray-50/60">
@@ -222,7 +222,7 @@ export default function CustomerList() {
                         </div>
 
                         {/* Mobile cards */}
-                        <ul className="md:hidden divide-y divide-gray-100">
+                        <ul className="xl:hidden divide-y divide-gray-100">
                             {customers.map((c) => (
                                 <li key={c.id} className="p-4 flex items-center gap-3">
                                     <span className="w-9 h-9 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center shrink-0 text-[13px] font-bold">
