@@ -37,11 +37,6 @@ export function PageHeader({ title, subtitle, actions, back }) {
     );
 }
 
-export function BackLink({ children = 'Kembali', to }) {
-    // dipasangkan oleh halaman dengan <Link component={BackLink}> pola sederhana
-    return null;
-}
-
 const STATUS_MAP = {
     paid: { label: 'Lunas', icon: 'check', cls: 'bg-green-50 text-green-700 border-green-200' },
     unpaid: { label: 'Hutang', icon: 'clock', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
