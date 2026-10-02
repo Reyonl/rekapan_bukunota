@@ -2,32 +2,50 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import { formatRupiah, formatDate } from '../../utils/format';
+import { Card, PageHeader, StatusBadge, Badge } from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
+import Icon from '../../components/ui/Icon';
+import Field, { inputClass } from '../../components/ui/Form';
+import { ConfirmDialog } from '../../components/ui/Modal';
+import { SkeletonRow, EmptyState, ErrorState } from '../../components/ui/States';
+import { toast } from '../../stores/toastStore';
 
 export default function TransactionList() {
     const navigate = useNavigate();
     const [transactions, setTransactions] = useState([]);
     const [meta, setMeta] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [search, setSearch] = useState('');
+    const [debounced, setDebounced] = useState('');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
     const [page, setPage] = useState(1);
-    const [deleting, setDeleting] = useState(null);
+
+    // delete via ConfirmDialog — sama persis endpoint & flow, tanpa window.confirm
+    const [confirmTarget, setConfirmTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
+
+    useEffect(() => {
+        const t = setTimeout(() => { setDebounced(search); setPage(1); }, 350);
+        return () => clearTimeout(t);
+    }, [search]);
 
     const fetchTransactions = async () => {
         setLoading(true);
+        setLoadError(false);
         try {
             const params = new URLSearchParams();
-            if (search) params.set('search', search);
+            if (debounced) params.set('search', debounced);
             if (dateFrom) params.set('date_from', dateFrom);
             if (dateTo) params.set('date_to', dateTo);
             params.set('page', page);
-
             const r = await api.get(`/transactions?${params.toString()}`);
             setTransactions(r.data.data || []);
             setMeta(r.data);
         } catch {
             setTransactions([]);
+            setLoadError(true);
         } finally {
             setLoading(false);
         }
@@ -35,125 +53,127 @@ export default function TransactionList() {
 
     useEffect(() => {
         fetchTransactions();
-    }, [search, dateFrom, dateTo, page]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [debounced, dateFrom, dateTo, page]);
 
-    const handleDelete = async (id) => {
-        if (!window.confirm('Hapus bon ini? Semua catatan di dalamnya akan ikut terhapus.')) return;
-        setDeleting(id);
+    const doDelete = async () => {
+        if (!confirmTarget) return;
+        setDeleting(true);
         try {
-            await api.delete(`/transactions/${id}`);
+            await api.delete(`/transactions/${confirmTarget.id}`);
+            toast.success('Bon berhasil dihapus.');
+            setConfirmTarget(null);
             fetchTransactions();
         } catch {
-            alert('Gagal menghapus bon.');
+            toast.error('Gagal menghapus bon.');
         } finally {
-            setDeleting(null);
+            setDeleting(false);
         }
     };
 
-    const statusBadge = (status) => {
-        if (status === 'completed') {
-            return <span className="border border-gray-300 px-2 py-0.5 rounded text-xs text-gray-700 bg-gray-50">Selesai</span>;
-        }
-        return <span className="border border-gray-300 px-2 py-0.5 rounded text-xs text-gray-500">Draft</span>;
-    };
+    const hasFilter = !!(debounced || dateFrom || dateTo);
+
+    const ActionRow = ({ t, className = '' }) => (
+        <div className={`flex items-center gap-1.5 ${className}`}>
+            <Button size="sm" variant="secondary" onClick={() => navigate(`/bon/${t.id}`)}>Lihat</Button>
+            <Button size="sm" variant="soft" icon="edit" onClick={() => navigate(`/bon/${t.id}/edit`)} aria-label={`Edit bon ${t.transaction_number}`}>Edit</Button>
+            <button
+                onClick={() => setConfirmTarget(t)}
+                aria-label={`Hapus bon ${t.transaction_number}`}
+                className="w-9 h-9 inline-flex items-center justify-center rounded-[10px] text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+            >
+                <Icon name="trash" className="w-4 h-4" />
+            </button>
+        </div>
+    );
 
     return (
-        <div className="max-w-6xl mx-auto px-4 py-8">
-            <div className="flex items-center justify-between mb-8">
-                <h1 className="text-xl font-medium text-gray-900">Riwayat Bon</h1>
-                <Link
-                    to="/bon/buat"
-                    className="bg-brand-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-brand-700 transition-colors"
-                >
-                    Buat Bon
-                </Link>
-            </div>
+        <div>
+            <PageHeader
+                title="Riwayat Bon"
+                subtitle={meta ? `${meta.total ?? transactions.length} bon tercatat` : undefined}
+                actions={<Link to="/bon/buat"><Button icon="plus">Buat Bon</Button></Link>}
+            />
 
-            {/* Filters */}
-            <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                    <label className="block text-sm text-gray-600 mb-1">Cari</label>
-                    <input
-                        type="text"
-                        value={search}
-                        onChange={e => { setSearch(e.target.value); setPage(1); }}
-                        placeholder="Pelanggan / nomor bon"
-                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm text-gray-600 mb-1">Dari Tanggal</label>
-                    <input
-                        type="date"
-                        value={dateFrom}
-                        onChange={e => { setDateFrom(e.target.value); setPage(1); }}
-                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm text-gray-600 mb-1">Sampai Tanggal</label>
-                    <input
-                        type="date"
-                        value={dateTo}
-                        onChange={e => { setDateTo(e.target.value); setPage(1); }}
-                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                    />
-                </div>
-            </div>
-
-            {/* Table Area */}
-            <div className="border border-gray-200 rounded bg-white">
-                {loading ? (
-                    <div className="p-8 text-center text-sm text-gray-500">Memuat...</div>
-                ) : transactions.length === 0 ? (
-                    <div className="p-12 text-center">
-                        <div className="text-gray-900 font-medium mb-1">Belum ada bon</div>
-                        <div className="text-gray-500 text-sm">
-                            {search || dateFrom || dateTo ? 'Coba ubah filter pencarian.' : 'Mulai dengan membuat bon baru.'}
+            {/* Filter */}
+            <Card className="p-4 mb-5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <Field label="Cari">
+                        <div className="relative">
+                            <Icon name="search" className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Pelanggan atau nomor bon"
+                                aria-label="Cari bon"
+                                className={`${inputClass()} pl-9`}
+                            />
                         </div>
-                        {!search && !dateFrom && !dateTo && (
-                            <Link to="/bon/buat" className="inline-block mt-4 bg-gray-900 text-white px-4 py-2 rounded text-sm font-medium hover:bg-gray-800">
-                                Buat Bon Pertama
-                            </Link>
-                        )}
+                    </Field>
+                    <Field label="Dari tanggal">
+                        <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} aria-label="Dari tanggal" className={inputClass()} />
+                    </Field>
+                    <Field label="Sampai tanggal">
+                        <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} aria-label="Sampai tanggal" className={inputClass()} />
+                    </Field>
+                </div>
+                {hasFilter && (
+                    <button
+                        onClick={() => { setSearch(''); setDateFrom(''); setDateTo(''); }}
+                        className="mt-3 text-xs font-medium text-brand-600 hover:text-brand-700 inline-flex items-center gap-1"
+                    >
+                        <Icon name="x" className="w-3.5 h-3.5" /> Bersihkan filter
+                    </button>
+                )}
+            </Card>
+
+            <Card className="overflow-hidden">
+                {loading ? (
+                    <div className="divide-y divide-gray-100 px-4 py-2">
+                        {[0, 1, 2, 3].map((i) => <SkeletonRow key={i} />)}
                     </div>
+                ) : loadError ? (
+                    <ErrorState message="Gagal memuat transaksi." onRetry={fetchTransactions} />
+                ) : transactions.length === 0 ? (
+                    <EmptyState
+                        icon="receipt"
+                        title={hasFilter ? 'Tidak ada bon yang cocok.' : 'Belum ada bon yang dibuat.'}
+                        description={hasFilter ? 'Coba ubah kata kunci atau rentang tanggalnya.' : 'Mulai catat penjualan dengan membuat bon pertama.'}
+                        action={hasFilter
+                            ? <Button size="sm" variant="secondary" onClick={() => { setSearch(''); setDateFrom(''); setDateTo(''); }}>Bersihkan filter</Button>
+                            : <Link to="/bon/buat"><Button>Buat Bon</Button></Link>}
+                    />
                 ) : (
                     <>
                         {/* Desktop table */}
                         <div className="hidden md:block overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead>
-                                    <tr className="border-b border-gray-200">
-                                        <th className="px-4 py-3 font-medium text-gray-500">No Bon</th>
-                                        <th className="px-4 py-3 font-medium text-gray-500">Pelanggan</th>
-                                        <th className="px-4 py-3 font-medium text-gray-500">Tanggal</th>
-                                        <th className="px-4 py-3 font-medium text-gray-500 text-right">Total</th>
-                                        <th className="px-4 py-3 font-medium text-gray-500 text-center">Status</th>
-                                        <th className="px-4 py-3 font-medium text-gray-500 text-right">Aksi</th>
+                                    <tr className="border-b border-gray-100 bg-gray-50/60">
+                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">No Bon</th>
+                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Pelanggan</th>
+                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Tanggal</th>
+                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Total</th>
+                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Status</th>
+                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Aksi</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    {transactions.map(t => (
-                                        <tr key={t.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-4 py-3 text-gray-600 font-mono text-xs">{t.transaction_number}</td>
-                                            <td className="px-4 py-3 text-gray-900 font-medium">{t.customer?.name}</td>
-                                            <td className="px-4 py-3 text-gray-600">{formatDate(t.transaction_date)}</td>
-                                            <td className="px-4 py-3 text-right text-gray-900 tabular-nums">{formatRupiah(t.total_amount)}</td>
-                                            <td className="px-4 py-3 text-center">{statusBadge(t.status)}</td>
-                                            <td className="px-4 py-3 text-right">
-                                                <div className="flex items-center justify-end gap-3">
-                                                    <Link to={`/bon/${t.id}`} className="text-gray-600 hover:text-gray-900 text-sm font-medium">Lihat</Link>
-                                                    <span className="text-gray-300">|</span>
-                                                    <Link to={`/bon/${t.id}/edit`} className="text-gray-600 hover:text-gray-900 text-sm font-medium">Edit</Link>
-                                                    <span className="text-gray-300">|</span>
-                                                    <button
-                                                        onClick={() => handleDelete(t.id)}
-                                                        disabled={deleting === t.id}
-                                                        className="text-gray-600 hover:text-red-600 text-sm font-medium disabled:opacity-50"
-                                                    >
-                                                        Hapus
-                                                    </button>
+                                <tbody className="divide-y divide-gray-100">
+                                    {transactions.map((t) => (
+                                        <tr key={t.id} className="hover:bg-brand-50/30 transition-colors">
+                                            <td className="px-4 py-3 text-gray-500 font-mono text-xs whitespace-nowrap">{t.transaction_number}</td>
+                                            <td className="px-4 py-3 font-semibold text-gray-900">{t.customer?.name || '-'}</td>
+                                            <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatDate(t.transaction_date)}</td>
+                                            <td className="px-4 py-3 text-right font-bold text-gray-900 tnum">{formatRupiah(t.total_amount)}</td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <StatusBadge status={t.payment_status} />
+                                                    {t.status === 'draft' && <Badge tone="brand">Draft</Badge>}
                                                 </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <ActionRow t={t} className="justify-end" />
                                             </td>
                                         </tr>
                                     ))}
@@ -161,57 +181,54 @@ export default function TransactionList() {
                             </table>
                         </div>
 
-                        {/* Mobile list */}
-                        <div className="md:hidden divide-y divide-gray-200">
-                            {transactions.map(t => (
-                                <div key={t.id} className="p-4 hover:bg-gray-50">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div>
-                                            <div className="font-medium text-gray-900">{t.customer?.name}</div>
-                                            <div className="text-xs text-gray-500 font-mono mt-0.5">{t.transaction_number}</div>
+                        {/* Mobile cards */}
+                        <ul className="md:hidden divide-y divide-gray-100">
+                            {transactions.map((t) => (
+                                <li key={t.id} className="p-4">
+                                    <button onClick={() => navigate(`/bon/${t.id}`)} className="w-full text-left">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className="font-semibold text-gray-900 truncate">{t.customer?.name || '-'}</p>
+                                                <p className="text-xs text-gray-500 font-mono mt-0.5">{t.transaction_number}</p>
+                                            </div>
+                                            <p className="font-bold text-gray-900 tnum shrink-0">{formatRupiah(t.total_amount)}</p>
                                         </div>
-                                        <div className="text-right">
-                                            <div className="font-medium text-gray-900 tabular-nums">{formatRupiah(t.total_amount)}</div>
-                                            <div className="text-sm mt-1">{statusBadge(t.status)}</div>
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <StatusBadge status={t.payment_status} />
+                                            {t.status === 'draft' && <Badge tone="brand">Draft</Badge>}
+                                            <span className="text-xs text-gray-500 ml-auto">{formatDate(t.transaction_date)}</span>
                                         </div>
-                                    </div>
-                                    <div className="text-sm text-gray-600 mb-3">{formatDate(t.transaction_date)}</div>
-                                    <div className="flex gap-4 border-t border-gray-100 pt-3">
-                                        <Link to={`/bon/${t.id}`} className="text-gray-600 hover:text-gray-900 text-sm font-medium">Lihat</Link>
-                                        <Link to={`/bon/${t.id}/edit`} className="text-gray-600 hover:text-gray-900 text-sm font-medium">Edit</Link>
-                                        <button onClick={() => handleDelete(t.id)} disabled={deleting === t.id} className="text-gray-600 hover:text-red-600 text-sm font-medium disabled:opacity-50">Hapus</button>
-                                    </div>
-                                </div>
+                                    </button>
+                                    <ActionRow t={t} className="mt-3 pt-3 border-t border-gray-100" />
+                                </li>
                             ))}
-                        </div>
+                        </ul>
 
                         {/* Pagination */}
                         {meta && meta.last_page > 1 && (
-                            <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between bg-gray-50 rounded-b">
-                                <span className="text-sm text-gray-600">
-                                    Hal {meta.current_page} / {meta.last_page}
+                            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/60 flex items-center justify-between gap-3">
+                                <span className="text-sm text-gray-500">
+                                    Hal. <span className="font-semibold text-gray-800 tnum">{meta.current_page}</span> / <span className="tnum">{meta.last_page}</span>
                                 </span>
                                 <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                                        disabled={page === 1}
-                                        className="px-3 py-1.5 border border-gray-300 rounded text-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-white transition-colors"
-                                    >
-                                        Prev
-                                    </button>
-                                    <button
-                                        onClick={() => setPage(p => Math.min(meta.last_page, p + 1))}
-                                        disabled={page === meta.last_page}
-                                        className="px-3 py-1.5 border border-gray-300 rounded text-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-white transition-colors"
-                                    >
-                                        Next
-                                    </button>
+                                    <Button size="sm" variant="secondary" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))} icon="chevronLeft">Prev</Button>
+                                    <Button size="sm" variant="secondary" disabled={page === meta.last_page} onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}>Next <Icon name="chevronRight" className="w-4 h-4" /></Button>
                                 </div>
                             </div>
                         )}
                     </>
                 )}
-            </div>
+            </Card>
+
+            <ConfirmDialog
+                open={!!confirmTarget}
+                onClose={() => setConfirmTarget(null)}
+                onConfirm={doDelete}
+                loading={deleting}
+                title="Hapus bon ini?"
+                message={`Bon ${confirmTarget?.transaction_number || ''} beserta semua catatan itemnya akan dihapus permanen.`}
+                confirmText="Hapus"
+            />
         </div>
     );
 }

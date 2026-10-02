@@ -3,6 +3,12 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import Select from 'react-select';
 import api from '../../api/client';
 import { formatRupiah, today } from '../../utils/format';
+import { Card, PageHeader, StatusBadge } from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
+import Icon from '../../components/ui/Icon';
+import Field, { inputClass, reactSelectStyles } from '../../components/ui/Form';
+import { ConfirmDialog } from '../../components/ui/Modal';
+import { toast } from '../../stores/toastStore';
 
 export default function CreateTransaction() {
     const { id } = useParams();
@@ -26,7 +32,8 @@ export default function CreateTransaction() {
     // -- State: UI & Form
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    
+    const [deletingItem, setDeletingItem] = useState(null);
+
     // Form Item
     const [formItem, setFormItem] = useState(null); // Selected product object
     const [formDescription, setFormDescription] = useState('');
@@ -36,7 +43,8 @@ export default function CreateTransaction() {
     const [formManualName, setFormManualName] = useState('');
     const [isManualItem, setIsManualItem] = useState(false);
     const [editingItemId, setEditingItemId] = useState(null);
-    
+    const [addingItem, setAddingItem] = useState(false);
+
     // Focus refs
     const itemSelectRef = useRef(null);
     const qtyInputRef = useRef(null);
@@ -46,7 +54,7 @@ export default function CreateTransaction() {
         if (!name) return (qty * unitPrice) || 0;
         const lowerName = name.toLowerCase();
         let subtotal = qty * unitPrice;
-        
+
         if (lowerName.includes('gorengan')) {
             const promoQty = Math.floor(qty / 3);
             const remainder = qty % 3;
@@ -99,7 +107,7 @@ export default function CreateTransaction() {
             const prodList = Array.isArray(prodRes.data) ? prodRes.data : prodRes.data.data || [];
             setCustomers(custList);
             setProducts(prodList);
-            
+
             if (id) {
                 api.get(`/transactions/${id}`).then(res => {
                     const data = res.data;
@@ -141,6 +149,7 @@ export default function CreateTransaction() {
                 setTransactionId(r.data.id);
                 setTransactionNumber(r.data.transaction_number);
                 setHeaderSaved(true);
+                toast.success('Bon dibuat. Silakan tambah catatan item.');
                 navigate(`/bon/${r.data.id}/edit`, { replace: true });
             } else {
                 await api.put(`/transactions/${transactionId}`, {
@@ -149,6 +158,7 @@ export default function CreateTransaction() {
                     notes,
                     payment_status: paymentStatus
                 });
+                toast.success('Perubahan bon tersimpan.');
             }
         } catch (e) {
             setError(e.response?.data?.message || 'Gagal menyimpan bon.');
@@ -176,13 +186,14 @@ export default function CreateTransaction() {
         const price = Number(formPrice);
         const sub = Number(formSubtotal);
         const name = isManualItem ? formManualName : formItem?.name;
-        
+
         if (!name || qty <= 0 || isNaN(price)) {
             setError('Item, Qty, dan Harga harus valid.');
             return;
         }
-        
+
         setError('');
+        setAddingItem(true);
         try {
             if (editingItemId) {
                 await api.put(`/transaction-items/${editingItemId}`, {
@@ -204,12 +215,12 @@ export default function CreateTransaction() {
                     subtotal: sub
                 });
             }
-            
+
             // Refresh transaction to get updated items & total
             const r = await api.get(`/transactions/${transactionId}`);
             setItems(r.data.items);
             setTotalAmount(r.data.total_amount);
-            
+
             // Reset form
             setFormItem(null);
             setFormManualName('');
@@ -217,10 +228,13 @@ export default function CreateTransaction() {
             setFormQty('1');
             setFormPrice('');
             setFormSubtotal('');
-            
+
+            toast.success('Item tersimpan.');
             if (itemSelectRef.current) itemSelectRef.current.focus();
         } catch (e) {
             setError('Gagal menyimpan item.');
+        } finally {
+            setAddingItem(false);
         }
     };
 
@@ -239,9 +253,19 @@ export default function CreateTransaction() {
         setFormQty(item.quantity.toString());
         setFormPrice(item.unit_price.toString());
         setFormSubtotal(item.subtotal.toString());
-        
+
         // Scroll to form smoothly
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const resetItemForm = () => {
+        setEditingItemId(null);
+        setFormItem(null);
+        setFormManualName('');
+        setFormDescription('');
+        setFormQty('1');
+        setFormPrice('');
+        setFormSubtotal('');
     };
 
     const removeItem = async (itemId) => {
@@ -250,20 +274,28 @@ export default function CreateTransaction() {
             const r = await api.get(`/transactions/${transactionId}`);
             setItems(r.data.items);
             setTotalAmount(r.data.total_amount);
+            toast.success('Item dihapus.');
+            if (editingItemId === itemId) resetItemForm();
         } catch (e) {
             setError('Gagal menghapus item.');
+        } finally {
+            setDeletingItem(null);
         }
     };
 
     const finalizeBon = async () => {
         if (!transactionId) return;
+        setLoading(true);
         try {
             await api.put(`/transactions/${transactionId}`, {
                 status: 'completed'
             });
+            toast.success('Bon selesai disimpan.');
             navigate(`/bon/${transactionId}`);
         } catch (e) {
             setError('Gagal menyelesaikan bon.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -274,344 +306,368 @@ export default function CreateTransaction() {
         ...products.map(p => ({ value: p.id, label: p.name, product: p }))
     ];
 
-    if (loading && !customers.length) {
-        return <div className="p-4 text-sm text-gray-500">Memuat...</div>;
-    }
-
     return (
-        <div className="max-w-3xl pb-24">
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">{id ? 'Edit Bon' : 'Buat Bon'}</h1>
-            
+        <div className="max-w-3xl">
+            <PageHeader
+                title={id ? 'Edit Bon' : 'Buat Bon'}
+                subtitle={headerSaved && transactionNumber ? transactionNumber : 'Isi pelanggan & tanggal, lalu tambahkan catatan item.'}
+                actions={headerSaved ? (
+                    <Link to={`/bon/${transactionId}`}>
+                        <Button variant="secondary" size="sm" icon="arrowLeft">Detail Bon</Button>
+                    </Link>
+                ) : undefined}
+            />
+
             {error && (
-                <div className="mb-6 p-3 bg-red-50 text-red-700 text-sm border border-red-200 rounded">
-                    {error}
+                <div className="mb-5 flex items-start gap-2 p-3 bg-red-50 text-red-700 text-sm border border-red-200 rounded-xl" role="alert">
+                    <Icon name="alert" className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span>{error}</span>
                 </div>
             )}
 
-            {/* 1. Header Section */}
-            <div className="mb-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-900 mb-1.5">Pelanggan</label>
+            {/* 1. Informasi Bon */}
+            <Card className="p-4 md:p-5 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field label="Pelanggan" required>
                         <Select
                             options={customerOptions}
                             value={customerOptions.find(o => o.value.toString() === customerId.toString()) || null}
-                            onChange={(opt) => {
-                                setCustomerId(opt ? opt.value : '');
-                                if (headerSaved) {
-                                    // if already saved, update immediately when changed is optional, but let's require explicit save or just auto save.
-                                    // for safety we don't auto save customer change unless they click save header.
-                                }
-                            }}
+                            onChange={(opt) => setCustomerId(opt ? opt.value : '')}
                             placeholder="Cari pelanggan..."
-                            className="text-sm"
-                            styles={{
-                                control: (base) => ({
-                                    ...base,
-                                    borderColor: '#E5E5E5',
-                                    borderRadius: '0.375rem',
-                                    minHeight: '40px'
-                                })
-                            }}
                             isDisabled={headerSaved}
+                            styles={reactSelectStyles}
                         />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-900 mb-1.5">Tanggal</label>
+                    </Field>
+                    <Field label="Tanggal" required>
                         <input
                             type="date"
                             value={transactionDate}
                             onChange={e => setTransactionDate(e.target.value)}
-                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
+                            className={inputClass()}
                             disabled={headerSaved}
                         />
-                    </div>
+                    </Field>
+                    {!headerSaved && (
+                        <div className="sm:col-span-2">
+                            <Field label="Catatan" hint="(opsional)">
+                                <textarea
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
+                                    rows={2}
+                                    placeholder="Contoh: bayar akhir bulan"
+                                    className={`${inputClass()} h-auto py-2 resize-y`}
+                                />
+                            </Field>
+                        </div>
+                    )}
                 </div>
-                {!headerSaved && (
-                    <div className="mt-4">
-                        <button
-                            onClick={saveHeader}
-                            disabled={loading}
-                            className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800"
-                        >
-                            Mulai Input Catatan
-                        </button>
+
+                {headerSaved && (
+                    <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <Icon name="info" className="w-4 h-4 text-gray-400 shrink-0" />
+                            Pelanggan & tanggal terkunci setelah bon dibuat.
+                        </div>
+                        <StatusBadge status={paymentStatus} />
                     </div>
                 )}
-            </div>
+
+                {!headerSaved && (
+                    <div className="mt-4">
+                        <Button onClick={saveHeader} loading={loading} loadingText="Menyimpan..." icon="check">
+                            Mulai Input Catatan
+                        </Button>
+                    </div>
+                )}
+            </Card>
 
             {headerSaved && (
                 <>
-                    <hr className="border-t border-gray-200 mb-8" />
-                    
-                    {/* 2. Form Input */}
-                    <div className="mb-10">
-                        <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">
-                            {editingItemId ? 'Edit Item' : 'Tambah Catatan'}
+                    {/* 2. Tambah item */}
+                    <Card className={`p-4 md:p-5 mb-6 ${editingItemId ? 'ring-2 ring-brand-100' : ''}`}>
+                        <h2 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <Icon name={editingItemId ? 'edit' : 'plus'} className="w-4 h-4 text-brand-600" />
+                            {editingItemId ? 'Edit Item' : 'Tambah Catatan Item'}
                         </h2>
-                        <form onSubmit={addItem} className="grid grid-cols-12 gap-4 items-end">
-                            <div className="col-span-12 sm:col-span-6 md:col-span-6">
-                                <label className="block text-sm font-medium text-gray-900 mb-1.5">Item</label>
-                                {isManualItem ? (
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={formManualName}
-                                            onChange={e => setFormManualName(e.target.value)}
-                                            placeholder="Nama item"
-                                            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
-                                            autoFocus
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setIsManualItem(false);
-                                                setFormManualName('');
+                        <form onSubmit={addItem} className="grid grid-cols-12 gap-3">
+                            <div className="col-span-12 sm:col-span-6">
+                                <Field label="Item">
+                                    {isManualItem ? (
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={formManualName}
+                                                onChange={e => setFormManualName(e.target.value)}
+                                                placeholder="Nama item"
+                                                className={inputClass()}
+                                                autoFocus
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => { setIsManualItem(false); setFormManualName(''); }}
+                                                aria-label="Batal input manual"
+                                                className="w-10 h-10 shrink-0 inline-flex items-center justify-center border border-gray-300 rounded-[10px] text-gray-500 hover:bg-gray-50 transition-colors"
+                                            >
+                                                <Icon name="x" className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <Select
+                                            ref={itemSelectRef}
+                                            options={productOptions}
+                                            value={formItem ? { value: formItem.id, label: formItem.name } : null}
+                                            onChange={(opt) => {
+                                                if (!opt) {
+                                                    setFormItem(null);
+                                                } else if (opt.value === 'MANUAL') {
+                                                    setIsManualItem(true);
+                                                    setFormItem(null);
+                                                    setFormPrice('');
+                                                } else {
+                                                    setFormItem(opt.product);
+                                                    setFormPrice(opt.product.default_price.toString());
+                                                    setTimeout(() => qtyInputRef.current?.focus(), 50);
+                                                }
                                             }}
-                                            className="px-2 py-2 border border-gray-300 rounded text-gray-500 hover:bg-gray-50 text-sm"
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <Select
-                                        ref={itemSelectRef}
-                                        options={productOptions}
-                                        value={formItem ? { value: formItem.id, label: formItem.name } : null}
-                                        onChange={(opt) => {
-                                            if (!opt) {
-                                                setFormItem(null);
-                                            } else if (opt.value === 'MANUAL') {
-                                                setIsManualItem(true);
-                                                setFormItem(null);
-                                                setFormPrice('');
-                                            } else {
-                                                setFormItem(opt.product);
-                                                setFormPrice(opt.product.default_price.toString());
-                                                setTimeout(() => qtyInputRef.current?.focus(), 50);
-                                            }
-                                        }}
-                                        placeholder="Cari item..."
-                                        className="text-sm"
-                                        styles={{
-                                            control: (base) => ({
-                                                ...base,
-                                                borderColor: '#E5E5E5',
-                                                borderRadius: '0.375rem',
-                                                minHeight: '40px'
-                                            })
-                                        }}
+                                            placeholder="Cari item..."
+                                            styles={reactSelectStyles}
+                                        />
+                                    )}
+                                </Field>
+                            </div>
+                            <div className="col-span-12 sm:col-span-6">
+                                <Field label="Keterangan" hint="(opsional)">
+                                    <input
+                                        type="text"
+                                        value={formDescription}
+                                        onChange={e => setFormDescription(e.target.value)}
+                                        placeholder="Contoh: Tegar"
+                                        className={inputClass()}
                                     />
-                                )}
+                                </Field>
                             </div>
-                            <div className="col-span-12 sm:col-span-6 md:col-span-6">
-                                <label className="block text-sm font-medium text-gray-900 mb-1.5">Keterangan <span className="text-gray-400 font-normal">(opsional)</span></label>
-                                <input
-                                    type="text"
-                                    value={formDescription}
-                                    onChange={e => setFormDescription(e.target.value)}
-                                    placeholder="Contoh: Tegar"
-                                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-gray-400 focus:outline-none"
-                                />
+                            <div className="col-span-4 sm:col-span-3">
+                                <Field label="Qty">
+                                    <input
+                                        type="number"
+                                        ref={qtyInputRef}
+                                        value={formQty}
+                                        onChange={e => setFormQty(e.target.value)}
+                                        min="1"
+                                        className={`${inputClass()} text-right tnum`}
+                                    />
+                                </Field>
                             </div>
-                            <div className="col-span-4 sm:col-span-3 md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-900 mb-1.5">Qty</label>
-                                <input
-                                    type="number"
-                                    ref={qtyInputRef}
-                                    value={formQty}
-                                    onChange={e => setFormQty(e.target.value)}
-                                    min="1"
-                                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-gray-400 focus:outline-none text-right"
-                                />
+                            <div className="col-span-8 sm:col-span-6">
+                                <Field label="Harga" hint="(minus = potongan)">
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={formatPriceDisplay(formPrice)}
+                                        onChange={handlePriceChange}
+                                        className={`${inputClass()} text-right tnum`}
+                                    />
+                                </Field>
                             </div>
-                            <div className="col-span-8 sm:col-span-6 md:col-span-7">
-                                <label className="block text-sm font-medium text-gray-900 mb-1.5">Harga</label>
-                                <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={formatPriceDisplay(formPrice)}
-                                    onChange={handlePriceChange}
-                                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-gray-400 focus:outline-none text-right"
-                                />
+                            <div className="col-span-12 sm:col-span-3 flex flex-col justify-end">
+                                <p className="text-xs text-gray-500 mb-1.5">Subtotal</p>
+                                <p className="h-10 flex items-center justify-end text-sm font-bold text-gray-900 tnum">{formatRupiah(formSubtotal)}</p>
                             </div>
-                            <div className="col-span-12 sm:col-span-3 md:col-span-3">
-                                <button
+                            <div className="col-span-12 flex gap-2">
+                                <Button
                                     type="submit"
-                                    className={`w-full py-2 text-sm font-medium rounded border ${editingItemId ? 'bg-brand-50 text-brand-700 border-brand-200 hover:bg-brand-100' : 'bg-gray-100 text-gray-900 border-gray-200 hover:bg-gray-200'}`}
+                                    variant={editingItemId ? 'primary' : 'dark'}
+                                    loading={addingItem}
+                                    loadingText="Menyimpan..."
+                                    icon={editingItemId ? 'check' : 'plus'}
+                                    className="flex-1 sm:flex-none sm:px-6"
                                 >
-                                    {editingItemId ? '✓ Update' : '+ Tambah'}
-                                </button>
+                                    {editingItemId ? 'Update Item' : 'Tambah Item'}
+                                </Button>
                                 {editingItemId && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setEditingItemId(null);
-                                            setFormItem(null);
-                                            setFormManualName('');
-                                            setFormDescription('');
-                                            setFormQty('1');
-                                            setFormPrice('');
-                                            setFormSubtotal('');
-                                        }}
-                                        className="w-full mt-2 py-2 bg-white text-gray-500 text-xs font-medium rounded border border-gray-200 hover:bg-gray-50"
-                                    >
-                                        Batal Edit
-                                    </button>
+                                    <Button variant="ghost" onClick={resetItemForm}>Batal Edit</Button>
                                 )}
                             </div>
                         </form>
-                    </div>
+                    </Card>
 
-                    <hr className="border-t border-gray-200 mb-8" />
+                    {/* 3. Daftar item */}
+                    <Card className="mb-6 overflow-hidden">
+                        <div className="px-4 md:px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+                            <h2 className="text-sm font-bold text-gray-900">Daftar Catatan</h2>
+                            <span className="text-xs text-gray-400 tnum">{items.length} item</span>
+                        </div>
 
-                    {/* 3. Daftar Catatan */}
-                    <div className="mb-6">
-                        <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Daftar Catatan</h2>
-                        
-                        {/* Desktop view */}
-                        <div className="hidden md:block overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b border-gray-200">
-                                        <th className="py-2 pr-4 text-left font-medium text-gray-500 w-1/3">Item</th>
-                                        <th className="py-2 px-4 text-left font-medium text-gray-500">Ket.</th>
-                                        <th className="py-2 px-4 text-right font-medium text-gray-500">Qty</th>
-                                        <th className="py-2 px-4 text-right font-medium text-gray-500">Harga</th>
-                                        <th className="py-2 pl-4 pr-8 text-right font-medium text-gray-500">Total</th>
-                                        <th className="py-2 w-8"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {items.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="6" className="py-8 text-center text-gray-400">
-                                                Belum ada item ditambahkan.
-                                            </td>
+                        {items.length === 0 ? (
+                            <p className="py-10 px-6 text-center text-sm text-gray-400">
+                                Belum ada item. Tambahkan lewat form di atas.
+                            </p>
+                        ) : (
+                            <>
+                                {/* Desktop */}
+                                <table className="hidden md:w-full text-sm md:block">
+                                    <thead>
+                                        <tr className="border-b border-gray-100 bg-gray-50/60 text-left">
+                                            <th className="px-5 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider w-2/5">Item</th>
+                                            <th className="px-3 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider">Ket.</th>
+                                            <th className="px-3 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Qty</th>
+                                            <th className="px-3 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Harga</th>
+                                            <th className="px-3 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Total</th>
+                                            <th className="px-5 py-2.5 w-24"></th>
                                         </tr>
-                                    ) : (
-                                        items.map((item, idx) => (
-                                            <tr key={item.id} className="border-b border-gray-100 group">
-                                                <td className="py-3 pr-4 text-gray-900">
-                                                    {item.product_name}
-                                                </td>
-                                                <td className="py-3 px-4 text-gray-600">
-                                                    {item.description || '-'}
-                                                </td>
-                                                <td className="py-3 px-4 text-right text-gray-900">
-                                                    {item.quantity}
-                                                </td>
-                                                <td className="py-3 px-4 text-right text-gray-600">
-                                                    {formatRupiah(item.unit_price)}
-                                                </td>
-                                                <td className="py-3 pl-4 pr-8 text-right font-medium text-gray-900">
-                                                    {formatRupiah(item.subtotal)}
-                                                </td>
-                                                <td className="py-3 text-right whitespace-nowrap">
-                                                    <button
-                                                        onClick={() => handleEditItem(item)}
-                                                        className={`text-xs font-medium mr-3 transition-colors md:opacity-0 md:group-hover:opacity-100 ${editingItemId === item.id ? 'text-blue-600' : 'text-gray-400 hover:text-blue-600'}`}
-                                                        aria-label="Edit item"
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() => removeItem(item.id)}
-                                                        className="text-gray-400 hover:text-red-600 transition-colors md:opacity-0 md:group-hover:opacity-100"
-                                                        aria-label="Hapus item"
-                                                    >
-                                                        &times;
-                                                    </button>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {items.map((item) => (
+                                            <tr key={item.id} className={`group transition-colors ${editingItemId === item.id ? 'bg-brand-50/60' : 'hover:bg-gray-50'}`}>
+                                                <td className="px-5 py-3 font-medium text-gray-900">{item.product_name}</td>
+                                                <td className="px-3 py-3 text-gray-500">{item.description || '-'}</td>
+                                                <td className="px-3 py-3 text-right text-gray-700 tnum">{item.quantity}</td>
+                                                <td className="px-3 py-3 text-right text-gray-600 tnum">{formatRupiah(item.unit_price)}</td>
+                                                <td className="px-3 py-3 text-right font-semibold text-gray-900 tnum">{formatRupiah(item.subtotal)}</td>
+                                                <td className="px-5 py-3">
+                                                    <div className="flex justify-end gap-0.5 transition-opacity">
+                                                        <button
+                                                            onClick={() => handleEditItem(item)}
+                                                            aria-label={`Edit item ${item.product_name}`}
+                                                            className={`w-8 h-8 inline-flex items-center justify-center rounded-lg transition-colors ${editingItemId === item.id ? 'bg-brand-100 text-brand-700' : 'text-gray-400 hover:bg-brand-50 hover:text-brand-600'}`}
+                                                        >
+                                                            <Icon name="edit" className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setDeletingItem(item)}
+                                                            aria-label={`Hapus item ${item.product_name}`}
+                                                            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                                        >
+                                                            <Icon name="trash" className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                        ))}
+                                    </tbody>
+                                </table>
 
-                        {/* Mobile view */}
-                        <div className="md:hidden divide-y divide-gray-100 border-t border-gray-200">
-                            {items.length === 0 ? (
-                                <div className="py-8 text-center text-gray-400 text-sm">
-                                    Belum ada item ditambahkan.
-                                </div>
-                            ) : (
-                                items.map((item) => (
-                                    <div key={item.id} className="py-3 flex justify-between items-center group">
-                                        <div className="flex-1 pr-4">
-                                            <div className="font-medium text-gray-900">{item.product_name}</div>
-                                            {item.description && <div className="text-xs text-gray-500 mt-0.5">{item.description}</div>}
-                                            <div className="text-xs text-gray-600 mt-1">
-                                                {item.quantity} x {formatRupiah(item.unit_price)}
+                                {/* Mobile */}
+                                <ul className="md:hidden divide-y divide-gray-100">
+                                    {items.map((item) => (
+                                        <li key={item.id} className={`p-4 ${editingItemId === item.id ? 'bg-brand-50/60' : ''}`}>
+                                            <div className="flex justify-between items-start gap-3">
+                                                <div className="min-w-0">
+                                                    <p className="font-semibold text-gray-900">{item.product_name}</p>
+                                                    {item.description && <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>}
+                                                    <p className="text-xs text-gray-500 mt-1 tnum">{item.quantity} × {formatRupiah(item.unit_price)}</p>
+                                                </div>
+                                                <div className="text-right shrink-0">
+                                                    <p className="font-bold text-gray-900 tnum">{formatRupiah(item.subtotal)}</p>
+                                                    <div className="flex gap-1 justify-end mt-1.5">
+                                                        <button
+                                                            onClick={() => handleEditItem(item)}
+                                                            aria-label={`Edit item ${item.product_name}`}
+                                                            className={`w-8 h-8 inline-flex items-center justify-center rounded-lg ${editingItemId === item.id ? 'bg-brand-100 text-brand-700' : 'text-gray-400 hover:bg-brand-50 hover:text-brand-600'}`}
+                                                        >
+                                                            <Icon name="edit" className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setDeletingItem(item)}
+                                                            aria-label={`Hapus item ${item.product_name}`}
+                                                            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600"
+                                                        >
+                                                            <Icon name="trash" className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="font-medium text-gray-900">{formatRupiah(item.subtotal)}</div>
-                                            <div className="flex gap-2 justify-end mt-1">
-                                                <button
-                                                    onClick={() => handleEditItem(item)}
-                                                    className={`text-xs font-medium ${editingItemId === item.id ? 'text-blue-600' : 'text-gray-400 hover:text-blue-600'}`}
-                                                >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => removeItem(item.id)}
-                                                    className="text-xs text-gray-400 hover:text-red-600"
-                                                >
-                                                    Hapus
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </>
+                        )}
 
-                    {/* 4. Total & Status Pembayaran */}
-                    <div className="border-t border-gray-200 pt-4 mb-6">
-                        <div className="flex items-center justify-between py-3">
-                            <span className="text-sm font-bold text-gray-900 uppercase tracking-wider">Total</span>
-                            <span className="text-2xl font-bold text-gray-900">{formatRupiah(totalAmount)}</span>
+                        {/* Total — selalu terlihat */}
+                        <div className="border-t border-gray-100 bg-gray-50/60 px-4 md:px-5 py-4">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold text-gray-900 uppercase tracking-wide">Total</span>
+                                <span className={`text-2xl font-bold tnum ${Number(totalAmount) < 0 ? 'text-red-600' : 'text-gray-900'}`}>{formatRupiah(totalAmount)}</span>
+                            </div>
                         </div>
-                        <div className="flex items-center justify-between py-3 border-t border-gray-100">
-                            <span className="text-sm font-medium text-gray-700">Status Pembayaran</span>
-                            <div className="flex gap-2">
+                    </Card>
+
+                    {/* 4. Status pembayaran & catatan */}
+                    <Card className="p-4 md:p-5 mb-6">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <p className="text-sm font-semibold text-gray-900">Status Pembayaran</p>
+                                <p className={`text-xs mt-0.5 flex items-center gap-1 ${paymentStatus === 'paid' ? 'text-green-600' : 'text-amber-600'}`}>
+                                    <Icon name={paymentStatus === 'paid' ? 'checkCircle' : 'alert'} className="w-3.5 h-3.5" />
+                                    {paymentStatus === 'paid' ? 'Transaksi ini sudah lunas' : 'Masih ada hutang yang belum dibayar'}
+                                </p>
+                            </div>
+                            <div className="flex gap-2" role="group" aria-label="Status pembayaran">
                                 <button
                                     type="button"
                                     onClick={() => updatePaymentStatus('paid')}
-                                    className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${paymentStatus === 'paid' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-500 border-gray-300 hover:border-green-400 hover:text-green-600'}`}
+                                    aria-pressed={paymentStatus === 'paid'}
+                                    className={`h-10 px-4 inline-flex items-center gap-1.5 text-sm font-semibold rounded-[10px] border transition-colors ${
+                                        paymentStatus === 'paid'
+                                            ? 'bg-green-600 text-white border-green-600'
+                                            : 'bg-white text-gray-500 border-gray-300 hover:border-green-400 hover:text-green-600'
+                                    }`}
                                 >
+                                    <Icon name="check" className="w-4 h-4" />
                                     Sudah Dibayar
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => updatePaymentStatus('unpaid')}
-                                    className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-colors ${paymentStatus === 'unpaid' ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-500 border-gray-300 hover:border-red-400 hover:text-red-500'}`}
+                                    aria-pressed={paymentStatus === 'unpaid'}
+                                    className={`h-10 px-4 inline-flex items-center gap-1.5 text-sm font-semibold rounded-[10px] border transition-colors ${
+                                        paymentStatus === 'unpaid'
+                                            ? 'bg-amber-500 text-white border-amber-500'
+                                            : 'bg-white text-gray-500 border-gray-300 hover:border-amber-400 hover:text-amber-600'
+                                    }`}
                                 >
+                                    <Icon name="clock" className="w-4 h-4" />
                                     Berhutang
                                 </button>
                             </div>
                         </div>
-                        {paymentStatus === 'paid' && (
-                            <div className="text-right text-xs text-green-600 font-medium pb-1">&#10003; Transaksi ini sudah lunas</div>
-                        )}
-                        {paymentStatus === 'unpaid' && (
-                            <div className="text-right text-xs text-red-500 font-medium pb-1">&#9888; Masih ada hutang yang belum dibayar</div>
-                        )}
+                        <Field label="Catatan" hint="(opsional)" className="mt-4">
+                            <textarea
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                rows={2}
+                                placeholder="Contoh: bayar akhir bulan"
+                                className={`${inputClass()} h-auto py-2 resize-y`}
+                            />
+                        </Field>
+                        <div className="mt-3">
+                            <Button variant="soft" size="sm" onClick={saveHeader} loading={loading} loadingText="Menyimpan..." icon="check">
+                                Simpan Perubahan Header
+                            </Button>
+                        </div>
+                    </Card>
+
+                    {/* 5. Finalize — sticky agar total & aksi tidak hilang di bawah (mobile) */}
+                    <div className="sticky bottom-[70px] md:bottom-4 z-10">
+                        <Card className="p-3 md:p-4 shadow-pop flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                                <p className="text-xs text-gray-500">Total bon</p>
+                                <p className={`text-lg font-bold tnum truncate ${Number(totalAmount) < 0 ? 'text-red-600' : 'text-gray-900'}`}>{formatRupiah(totalAmount)}</p>
+                            </div>
+                            <Button size="lg" onClick={finalizeBon} disabled={items.length === 0} loading={loading} loadingText="Menyimpan..." icon="checkCircle">
+                                Simpan Bon
+                            </Button>
+                        </Card>
                     </div>
 
-                    {/* 5. Action */}
-                    <div className="pt-2">
-                        <button
-                            onClick={finalizeBon}
-                            disabled={items.length === 0}
-                            className="w-full sm:w-auto px-8 py-3 bg-brand-600 text-white font-semibold rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                            Simpan Bon
-                        </button>
-                    </div>
+                    <ConfirmDialog
+                        open={!!deletingItem}
+                        onClose={() => setDeletingItem(null)}
+                        onConfirm={() => removeItem(deletingItem.id)}
+                        title="Hapus item ini?"
+                        message={deletingItem ? `"${deletingItem.product_name}" akan dihapus dari bon.` : ''}
+                        confirmText="Hapus"
+                    />
                 </>
             )}
         </div>

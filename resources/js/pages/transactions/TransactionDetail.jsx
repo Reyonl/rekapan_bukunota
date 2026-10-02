@@ -5,6 +5,11 @@ import html2canvas from 'html2canvas';
 import api from '../../api/client';
 import { formatRupiah, formatNumber, formatDateShort } from '../../utils/format';
 import { globalActiveDevice, setGlobalActiveDevice, getSavedPrinterName, getSavedPrinterId } from '../../utils/printer';
+import { Card } from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
+import Icon from '../../components/ui/Icon';
+import { Skeleton } from '../../components/ui/States';
+import { toast } from '../../stores/toastStore';
 
 const THERMAL_SIZES = {
     '58mm': { width: '58mm', chars: 32 },
@@ -18,7 +23,7 @@ export default function TransactionDetail() {
     const [transaction, setTransaction] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    
+
     // Print states
     const [thermalSize, setThermalSize] = useState(localStorage.getItem('thermalSize') || '58mm');
     const [isPrinting, setIsPrinting] = useState(false);
@@ -43,7 +48,7 @@ export default function TransactionDetail() {
         if (!transaction) return '';
         const maxChars = THERMAL_SIZES[thermalSize].chars;
         const lineDash = '-'.repeat(maxChars);
-        
+
         const wrapText = (text) => {
             const lines = [];
             let currentLine = '';
@@ -70,46 +75,46 @@ export default function TransactionDetail() {
             const padding = Math.max(1, available - value.length);
             return label + ' '.repeat(padding) + value;
         };
-        
+
         let text = [];
         text.push(centerText('WARUNG LUPI'));
         text.push(centerText('Ke pasar membeli semangka'));
         text.push(centerText('Jangan lupa mampir ke Lupi'));
         text.push(lineDash);
-        
+
         const dateStr = transaction.transaction_date ? formatDateShort(transaction.transaction_date.includes('T') ? transaction.transaction_date : transaction.transaction_date + 'T00:00:00') : '';
         text.push(`No   : ${transaction.transaction_number || '-'}`);
         text.push(`Tgl  : ${dateStr}`);
         text.push(`Plg  : ${transaction.customer?.name || 'Umum'}`);
         text.push(lineDash);
-        
+
         (transaction.items || []).forEach(item => {
             const name = item.description ? `${item.product_name} - ${item.description}` : item.product_name;
             const nameLines = wrapText(name);
             text.push(...nameLines);
-            
+
             const leftStr = `${item.quantity} x ${formatNumber(item.unit_price)}`;
             const rightStr = formatNumber(item.subtotal);
             text.push(rightAlign(leftStr, rightStr));
         });
-        
+
         text.push(lineDash);
         text.push(rightAlign('TOTAL', formatNumber(transaction.total_amount)));
-        
+
         if (transaction.notes) {
             text.push(`\nCatatan: ${transaction.notes}`);
         }
         text.push('');
         text.push(centerText('Terima kasih sudah belanja'));
         text.push(centerText('Semoga puas di hati'));
-        
+
         return text.join('\n');
     };
 
     // Cetak ke Printer Bluetooth
     const handleCetak = async () => {
         setPrintError('');
-        
+
         if (!navigator.bluetooth) {
             setPrintError("Browser tidak mendukung pencetakan langsung ke printer Bluetooth. Gunakan opsi Export PDF.");
             return;
@@ -124,7 +129,7 @@ export default function TransactionDetail() {
 
         try {
             let device = globalActiveDevice;
-            
+
             if (!device && navigator.bluetooth.getDevices) {
                 const devices = await navigator.bluetooth.getDevices();
                 const savedId = getSavedPrinterId();
@@ -138,7 +143,7 @@ export default function TransactionDetail() {
 
             const server = await device.gatt.connect();
             const services = await server.getPrimaryServices();
-            
+
             let printCharacteristic = null;
             for (const service of services) {
                 const characteristics = await service.getCharacteristics();
@@ -163,7 +168,7 @@ export default function TransactionDetail() {
 
             const maxChars = THERMAL_SIZES[thermalSize].chars;
             const lineDash = '-'.repeat(maxChars) + '\n';
-            
+
             const wrapText = (text) => {
                 const lines = [];
                 let currentLine = '';
@@ -197,7 +202,7 @@ export default function TransactionDetail() {
 
             addBytes([0x1B, 0x40]); // Initialize
             addBytes([0x1B, 0x4D, 0x00]); // Force Font A (Standard 32/48 chars)
-            
+
             // Header
             addBytes([0x1B, 0x61, 0x01]); // Center
             addBytes([0x1B, 0x21, 0x30]); // Big font (Double width & height)
@@ -207,17 +212,17 @@ export default function TransactionDetail() {
             addBytes([0x1B, 0x21, 0x00]); // Normal size
             addText('Ke pasar membeli semangka\n');
             addText('Jangan lupa mampir ke Lupi\n');
-            
+
             // Info
             addBytes([0x1B, 0x61, 0x00]); // Left
             addText(lineDash);
             const dateStr = transaction.transaction_date ? formatDateShort(transaction.transaction_date.includes('T') ? transaction.transaction_date : transaction.transaction_date + 'T00:00:00') : '';
-            
+
             addText(rightAlign('No.', transaction.transaction_number || '-') + '\n');
             addText(rightAlign('Tanggal', dateStr) + '\n');
             addText(rightAlign('Pelanggan', transaction.customer?.name || 'Umum') + '\n');
             addText(lineDash);
-            
+
             // Items
             (transaction.items || []).forEach(item => {
                 const name = item.description ? `${item.product_name} - ${item.description}` : item.product_name;
@@ -225,26 +230,26 @@ export default function TransactionDetail() {
                 const nameLines = wrapText(name);
                 nameLines.forEach(l => addText(l + '\n'));
                 boldOff();
-                
+
                 const leftStr = `${item.quantity} x ${formatNumber(item.unit_price)}`;
                 const rightStr = formatNumber(item.subtotal);
                 addText(rightAlign(leftStr, rightStr) + '\n');
             });
-            
+
             addText(lineDash);
-            
+
             // Total
             boldOn();
             addBytes([0x1B, 0x21, 0x10]); // Double height only
             addText(rightAlign('TOTAL', formatNumber(transaction.total_amount)) + '\n');
             addBytes([0x1B, 0x21, 0x00]); // Normal size
             boldOff();
-            
+
             if (transaction.notes) {
                 addText(`\nCatatan: ${transaction.notes}\n`);
             }
             addText('\n');
-            
+
             // QR Code QRIS
             const qrisData = "00020101021126610014COM.GO-JEK.WWW01189360091431908993800210G1908993800303UMI51440014ID.CO.QRIS.WWW0215ID10253695702010303UMI5204549953033605802ID5923WARUNG LUPI, Pagedangan6009TANGERANG61051533062070703A0163044C4B";
             const qrisBytes = encoder.encode(qrisData);
@@ -263,7 +268,7 @@ export default function TransactionDetail() {
             addBytes([0x1B, 0x61, 0x01]); // Center
             addText('Terima kasih sudah belanja\n');
             addText('Semoga puas di hati\n\n\n');
-            
+
             const data = new Uint8Array(buffer);
             const CHUNK_SIZE = 100;
             for (let i = 0; i < data.length; i += CHUNK_SIZE) {
@@ -273,7 +278,8 @@ export default function TransactionDetail() {
             }
 
             device.gatt.disconnect();
-            
+            toast.success('Struk dikirim ke printer.');
+
         } catch (error) {
             console.error(error);
             setPrintError(`Printer bermasalah: ${error.message}`);
@@ -298,9 +304,9 @@ export default function TransactionDetail() {
         textArea.select();
         try {
             document.execCommand('copy');
-            alert('Teks struk berhasil disalin! Buka aplikasi Printer Bluetooth Anda lalu paste.');
+            toast.success('Teks struk disalin. Buka aplikasi printer Bluetooth lalu paste.');
         } catch (err) {
-            alert('Gagal menyalin teks.');
+            toast.error('Gagal menyalin teks struk.');
         }
         document.body.removeChild(textArea);
     };
@@ -308,20 +314,21 @@ export default function TransactionDetail() {
     const handleDownloadImage = async () => {
         const previewElement = document.querySelector('.thermal-receipt-preview');
         if (!previewElement) return;
-        
+
         try {
             const canvas = await html2canvas(previewElement, {
                 scale: 2,
                 backgroundColor: '#ffffff'
             });
             const image = canvas.toDataURL("image/png");
-            
+
             const link = document.createElement('a');
             link.href = image;
             link.download = `Nota_${transaction?.transaction_number || 'WarungLupi'}.png`;
             link.click();
+            toast.success('Gambar nota diunduh.');
         } catch (err) {
-            alert('Gagal mendownload gambar nota.');
+            toast.error('Gagal mengunduh gambar nota.');
             console.error(err);
         }
     };
@@ -331,15 +338,36 @@ export default function TransactionDetail() {
         localStorage.setItem('thermalSize', size);
     };
 
-    if (loading) return <div className="p-4 text-sm text-gray-500">Memuat detail bon...</div>;
-    if (error || !transaction) return (
-        <div className="p-4">
-            <div className="text-red-600 text-sm mb-4">{error}</div>
-            <Link to="/bon" className="text-gray-600 hover:text-gray-900 text-sm font-medium">← Kembali ke Riwayat</Link>
-        </div>
-    );
+    if (loading) {
+        return (
+            <div className="max-w-2xl mx-auto space-y-4">
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-12 w-full rounded-2xl" />
+                <Skeleton className="h-[320px] w-full rounded-2xl" />
+            </div>
+        );
+    }
+
+    if (error || !transaction) {
+        return (
+            <div className="max-w-2xl mx-auto">
+                <Card className="py-12 px-6 text-center">
+                    <span className="inline-flex w-12 h-12 rounded-2xl bg-red-50 text-red-500 items-center justify-center mb-3">
+                        <Icon name="alert" className="w-6 h-6" />
+                    </span>
+                    <p className="text-sm font-semibold text-gray-900">{error || 'Bon tidak ditemukan.'}</p>
+                    <div className="mt-4">
+                        <Link to="/bon"><Button variant="secondary" size="sm" icon="arrowLeft">Kembali ke Riwayat</Button></Link>
+                    </div>
+                </Card>
+            </div>
+        );
+    }
 
     const sizeConfig = THERMAL_SIZES[thermalSize];
+    const dateStr = transaction.transaction_date
+        ? formatDateShort(transaction.transaction_date.includes('T') ? transaction.transaction_date : transaction.transaction_date + 'T00:00:00')
+        : '';
 
     return (
         <div className="max-w-2xl mx-auto print:max-w-none print:m-0 print:p-0">
@@ -357,82 +385,91 @@ export default function TransactionDetail() {
                 `}
             </style>
 
-            <div className="no-print mb-6">
-                <Link to="/bon" className="text-gray-500 hover:text-gray-900 text-sm font-medium mb-4 inline-block">← Kembali</Link>
-                
+            <div className="no-print">
+                <Link to="/bon" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 font-medium mb-4 transition-colors">
+                    <Icon name="arrowLeft" className="w-4 h-4" /> Riwayat Bon
+                </Link>
+
+                {/* Header bon */}
+                <Card className="p-4 md:p-5 mb-4">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="min-w-0">
+                            <p className="font-mono text-xs text-gray-400">{transaction.transaction_number}</p>
+                            <h1 className="text-xl font-bold text-gray-900 tracking-tight mt-0.5 truncate">
+                                {transaction.customer?.name || 'Umum'}
+                            </h1>
+                            <p className="text-sm text-gray-500 mt-1">{dateStr} · {transaction.items?.length ?? 0} item</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                            <p className="text-xs text-gray-500 uppercase font-semibold tracking-wide">Total</p>
+                            <p className={`text-2xl font-bold tnum ${Number(transaction.total_amount) < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                                {formatRupiah(transaction.total_amount)}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                        <Link to={`/bon/${id}/edit`}>
+                            <Button variant="secondary" size="sm" icon="edit">Edit Bon</Button>
+                        </Link>
+                        <Button variant="ghost" size="sm" onClick={handleExportPDF} icon="printer">Export PDF</Button>
+                    </div>
+                </Card>
+
                 {printError && (
-                    <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm flex flex-col gap-2">
-                        <span>{printError}</span>
+                    <div className="mb-4 p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex flex-col gap-2" role="alert">
+                        <span className="flex items-start gap-2">
+                            <Icon name="alert" className="w-4 h-4 mt-0.5 shrink-0" />
+                            <span>{printError}</span>
+                        </span>
                         {(!navigator.bluetooth || !savedPrinter || printError.includes("kedaluwarsa") || printError.includes("terputus")) && (
-                            <Link to="/pengaturan" className="text-brand-700 font-semibold underline hover:text-brand-800">
+                            <Link to="/pengaturan" className="text-brand-700 font-semibold underline hover:text-brand-800 self-start ml-6">
                                 Buka Pengaturan Printer →
                             </Link>
                         )}
                     </div>
                 )}
-                
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
-                    <h1 className="text-xl md:text-2xl font-bold text-gray-900">Preview Bon</h1>
-                    
+
+                {/* Toolbar cetak */}
+                <Card className="p-3 md:p-4 mb-6">
                     <div className="flex flex-wrap items-center gap-2">
-                        <div className="flex border border-gray-200 rounded overflow-hidden">
+                        <div className="flex border border-gray-200 rounded-[10px] overflow-hidden" role="group" aria-label="Ukuran struk">
                             {Object.keys(THERMAL_SIZES).map(size => (
                                 <button
                                     key={size}
                                     onClick={() => handleSizeChange(size)}
-                                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                                        thermalSize === size ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                                    aria-pressed={thermalSize === size}
+                                    className={`h-10 px-3.5 text-xs font-semibold transition-colors ${
+                                        thermalSize === size ? 'bg-ink text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
                                     }`}
                                 >
                                     {size}
                                 </button>
                             ))}
                         </div>
-                        <Link
-                            to={`/bon/${id}/edit`}
-                            className="px-3 py-1.5 border border-gray-300 bg-white rounded text-sm font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                            Edit
-                        </Link>
-                        <button
-                            onClick={handleDownloadImage}
-                            className="px-3 py-1.5 bg-yellow-500 text-white rounded text-sm font-medium hover:bg-yellow-600"
-                        >
-                            Download
-                        </button>
-                        <button
-                            onClick={handleExportPDF}
-                            className="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded text-sm font-medium hover:bg-gray-50"
-                        >
-                            Export PDF
-                        </button>
-                        <button
-                            onClick={handleCopy}
-                            className="px-3 py-1.5 bg-gray-500 text-white rounded text-sm font-medium hover:bg-gray-600 hidden sm:block"
-                        >
-                            Copy
-                        </button>
-                        <button
-                            onClick={handleRawBT}
-                            className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 hidden sm:block"
-                        >
-                            RawBT
-                        </button>
-                        <button
+                        <div className="flex-1" />
+                        <Button variant="secondary" size="sm" onClick={handleDownloadImage} icon="box">PNG</Button>
+                        <Button variant="secondary" size="sm" onClick={handleCopy} icon="edit" className="hidden sm:inline-flex">Copy Teks</Button>
+                        <Button variant="secondary" size="sm" onClick={handleRawBT} icon="bluetooth" className="hidden sm:inline-flex">RawBT</Button>
+                        <Button
                             onClick={handleCetak}
-                            disabled={isPrinting}
-                            className={`px-6 py-1.5 rounded text-sm font-bold text-white shadow-sm w-full md:w-auto ${
-                                isPrinting ? 'bg-gray-400 cursor-not-allowed' : 'bg-brand-600 hover:bg-brand-700'
-                            }`}
+                            loading={isPrinting}
+                            loadingText="Mencetak..."
+                            icon="printer"
+                            className="flex-1 sm:flex-none sm:px-6"
                         >
-                            {isPrinting ? 'MENCETAK...' : 'CETAK'}
-                        </button>
+                            Cetak
+                        </Button>
                     </div>
-                </div>
+                    {/* Opsi mobile: Copy & RawBT di baris kedua */}
+                    <div className="sm:hidden flex gap-2 mt-2">
+                        <Button variant="ghost" size="sm" onClick={handleCopy} icon="edit" className="flex-1">Copy Teks</Button>
+                        <Button variant="ghost" size="sm" onClick={handleRawBT} icon="bluetooth" className="flex-1">RawBT</Button>
+                    </div>
+                </Card>
             </div>
 
             {/* Preview Container */}
-            <div className="no-print bg-white border border-gray-200 rounded-lg p-4 sm:p-8 flex justify-center mb-8 overflow-x-auto shadow-sm">
+            <div className="no-print bg-white border border-gray-200 rounded-2xl p-4 sm:p-8 flex justify-center mb-8 overflow-x-auto shadow-[0_1px_2px_rgb(16_19_24/0.05)]">
                 <ThermalReceipt transaction={transaction} size={thermalSize} preview={true} />
             </div>
 
@@ -440,22 +477,20 @@ export default function TransactionDetail() {
             <div className="print-only">
                 <ThermalReceipt transaction={transaction} size={thermalSize} preview={false} />
             </div>
-            
-            {/* Payment Status section entirely removed from here based on user request */}
         </div>
     );
 }
 
 function ThermalReceipt({ transaction, size, preview }) {
     const { customer, items = [], transaction_date, total_amount, notes, transaction_number } = transaction;
-    
+
     const formattedDate = transaction_date
         ? formatDateShort(transaction_date.includes('T') ? transaction_date : transaction_date + 'T00:00:00')
         : '';
 
-    const containerStyle = preview 
+    const containerStyle = preview
         ? {
-            width: size === '58mm' ? '300px' : '400px', 
+            width: size === '58mm' ? '300px' : '400px',
             fontFamily: "'Courier New', Courier, monospace",
             backgroundColor: '#fff',
             border: '1px solid #e5e7eb',
@@ -466,7 +501,7 @@ function ThermalReceipt({ transaction, size, preview }) {
             lineHeight: '1.4'
         }
         : {
-            width: size === '58mm' ? '58mm' : '80mm', 
+            width: size === '58mm' ? '58mm' : '80mm',
             fontFamily: "'Courier New', Courier, monospace",
             padding: '4mm',
             margin: '0',
