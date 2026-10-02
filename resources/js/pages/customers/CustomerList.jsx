@@ -1,90 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/client';
+import { Card, PageHeader, Badge } from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
+import Icon from '../../components/ui/Icon';
+import { inputClass } from '../../components/ui/Form';
+import { ConfirmDialog } from '../../components/ui/Modal';
+import { SkeletonRow, EmptyState } from '../../components/ui/States';
+import { toast } from '../../stores/toastStore';
 
-// ---------------------------------------------------------------------------
-// Toast component
-// ---------------------------------------------------------------------------
-function Toast({ toasts, onDismiss }) {
-    return (
-        <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 w-80">
-            {toasts.map((t) => (
-                <div
-                    key={t.id}
-                    className={`flex items-start gap-3 rounded px-4 py-3 border text-sm transition-all shadow-sm
-                        ${t.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}
-                >
-                    <span className="flex-1">{t.message}</span>
-                    <button
-                        onClick={() => onDismiss(t.id)}
-                        className="ml-2 font-bold leading-none opacity-70 hover:opacity-100"
-                        aria-label="Tutup"
-                    >
-                        ×
-                    </button>
-                </div>
-            ))}
-        </div>
-    );
-}
-
-// ---------------------------------------------------------------------------
-// Confirm Dialog component
-// ---------------------------------------------------------------------------
-function ConfirmDialog({ open, title, message, onConfirm, onCancel, loading }) {
-    if (!open) return null;
-    return (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
-            <div className="bg-white rounded shadow-sm w-full max-w-sm p-6 border border-gray-200">
-                <h2 className="text-base font-semibold text-gray-900 mb-2">{title}</h2>
-                <p className="text-gray-600 text-sm mb-6">{message}</p>
-                <div className="flex justify-end gap-3">
-                    <button
-                        onClick={onCancel}
-                        disabled={loading}
-                        className="px-3 py-1.5 rounded border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 disabled:opacity-50"
-                    >
-                        Batal
-                    </button>
-                    <button
-                        onClick={onConfirm}
-                        disabled={loading}
-                        className="px-3 py-1.5 rounded bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-                    >
-                        {loading ? 'Menghapus...' : 'Hapus'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// ---------------------------------------------------------------------------
-// Status Badge
-// ---------------------------------------------------------------------------
-function StatusBadge({ isActive }) {
-    return (
-        <span
-            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border
-                ${isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
-        >
-            {isActive ? 'Aktif' : 'Nonaktif'}
-        </span>
-    );
-}
-
-// ---------------------------------------------------------------------------
-// Main Component
-// ---------------------------------------------------------------------------
 export default function CustomerList() {
     const navigate = useNavigate();
 
-    // ---- state ----
     const [customers, setCustomers] = useState([]);
     const [search, setSearch] = useState('');
     const [filterActive, setFilterActive] = useState(true); // true = Aktif only
     const [loading, setLoading] = useState(false);
-    const [toasts, setToasts] = useState([]);
+    const [firstLoad, setFirstLoad] = useState(true);
 
     // Confirm dialog state
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -93,19 +25,6 @@ export default function CustomerList() {
 
     // Toggle loading tracker
     const [togglingId, setTogglingId] = useState(null);
-
-    // ---- toast helpers ----
-    const pushToast = useCallback((type, message) => {
-        const id = Date.now() + Math.random();
-        setToasts((prev) => [...prev, { id, type, message }]);
-        setTimeout(() => {
-            setToasts((prev) => prev.filter((t) => t.id !== id));
-        }, 4000);
-    }, []);
-
-    const dismissToast = useCallback((id) => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, []);
 
     // ---- fetch ----
     const fetchCustomers = useCallback(async () => {
@@ -121,11 +40,12 @@ export default function CustomerList() {
             // Support both paginated { data: [...] } and plain array responses
             setCustomers(Array.isArray(data) ? data : data.data ?? []);
         } catch (err) {
-            pushToast('error', err.response?.data?.message ?? 'Gagal memuat data pelanggan.');
+            toast.error(err.response?.data?.message ?? 'Gagal memuat data pelanggan.');
         } finally {
             setLoading(false);
+            setFirstLoad(false);
         }
-    }, [search, filterActive, pushToast]);
+    }, [search, filterActive]);
 
     // Debounce search
     useEffect(() => {
@@ -144,12 +64,12 @@ export default function CustomerList() {
         setDeleteLoading(true);
         try {
             await api.delete(`/customers/${confirmTarget.id}`);
-            pushToast('success', `Pelanggan "${confirmTarget.name}" berhasil dihapus.`);
+            toast.success(`Pelanggan "${confirmTarget.name}" berhasil dihapus.`);
             setConfirmOpen(false);
             setConfirmTarget(null);
             fetchCustomers();
         } catch (err) {
-            pushToast('error', err.response?.data?.message ?? 'Gagal menghapus pelanggan.');
+            toast.error(err.response?.data?.message ?? 'Gagal menghapus pelanggan.');
         } finally {
             setDeleteLoading(false);
         }
@@ -163,168 +83,164 @@ export default function CustomerList() {
                 is_active: !customer.is_active,
             });
             const action = customer.is_active ? 'dinonaktifkan' : 'diaktifkan';
-            pushToast('success', `Pelanggan "${customer.name}" berhasil ${action}.`);
+            toast.success(`Pelanggan "${customer.name}" berhasil ${action}.`);
             fetchCustomers();
         } catch (err) {
-            pushToast('error', err.response?.data?.message ?? 'Gagal mengubah status pelanggan.');
+            toast.error(err.response?.data?.message ?? 'Gagal mengubah status pelanggan.');
         } finally {
             setTogglingId(null);
         }
     };
 
-    // ---- render helpers ----
     const ActionButtons = ({ customer }) => (
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex items-center justify-end gap-1">
             <button
                 onClick={() => navigate(`/pelanggan/${customer.id}/edit`)}
-                className="text-sm text-gray-600 hover:text-gray-900 font-medium"
+                aria-label={`Edit pelanggan ${customer.name}`}
+                className="w-9 h-9 inline-flex items-center justify-center rounded-[10px] text-gray-400 hover:bg-brand-50 hover:text-brand-600 transition-colors"
             >
-                Edit
+                <Icon name="edit" className="w-4 h-4" />
             </button>
-            <span className="text-gray-300">|</span>
             <button
                 onClick={() => handleToggleActive(customer)}
                 disabled={togglingId === customer.id}
-                className="text-sm text-gray-600 hover:text-gray-900 font-medium disabled:opacity-50"
+                aria-label={customer.is_active ? `Nonaktifkan ${customer.name}` : `Aktifkan ${customer.name}`}
+                title={customer.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                className="w-9 h-9 inline-flex items-center justify-center rounded-[10px] text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors disabled:opacity-50"
             >
                 {togglingId === customer.id
-                    ? '...'
-                    : customer.is_active
-                        ? 'Nonaktifkan'
-                        : 'Aktifkan'}
+                    ? <Icon name="clock" className="w-4 h-4 animate-spin" />
+                    : <Icon name={customer.is_active ? 'x' : 'check'} className="w-4 h-4" />}
             </button>
-            <span className="text-gray-300">|</span>
             <button
                 onClick={() => handleDeleteRequest(customer)}
-                className="text-sm text-gray-600 hover:text-red-600 font-medium"
+                aria-label={`Hapus pelanggan ${customer.name}`}
+                className="w-9 h-9 inline-flex items-center justify-center rounded-[10px] text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
             >
-                Hapus
+                <Icon name="trash" className="w-4 h-4" />
             </button>
         </div>
     );
 
     return (
-        <>
-            {/* Toasts */}
-            <Toast toasts={toasts} onDismiss={dismissToast} />
-
-            {/* Confirm Dialog */}
-            <ConfirmDialog
-                open={confirmOpen}
-                title="Hapus Pelanggan"
-                message={`Apakah Anda yakin ingin menghapus pelanggan "${confirmTarget?.name}"? Tindakan ini tidak dapat dibatalkan.`}
-                onConfirm={handleDeleteConfirm}
-                onCancel={() => { setConfirmOpen(false); setConfirmTarget(null); }}
-                loading={deleteLoading}
+        <div>
+            <PageHeader
+                title="Pelanggan"
+                subtitle={firstLoad || loading ? undefined : `${customers.length} pelanggan`}
+                actions={<Button icon="plus" onClick={() => navigate('/pelanggan/tambah')}>Tambah Pelanggan</Button>}
             />
 
-            {/* Page */}
-            <div className="max-w-6xl mx-auto px-4 py-8">
+            <ConfirmDialog
+                open={confirmOpen}
+                onClose={() => { setConfirmOpen(false); setConfirmTarget(null); }}
+                onConfirm={handleDeleteConfirm}
+                loading={deleteLoading}
+                title="Hapus Pelanggan"
+                message={`Apakah Anda yakin ingin menghapus pelanggan "${confirmTarget?.name}"? Tindakan ini tidak dapat dibatalkan.`}
+                confirmText="Hapus"
+            />
 
-                {/* Header */}
-                <div className="flex items-center justify-between mb-8">
-                    <h1 className="text-xl font-medium text-gray-900">Pelanggan</h1>
-                    <button
-                        onClick={() => navigate('/pelanggan/tambah')}
-                        className="bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium px-4 py-2 rounded transition"
-                    >
-                        Tambah Pelanggan
-                    </button>
-                </div>
-
-                {/* Toolbar */}
-                <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                    {/* Search */}
-                    <div className="flex-1">
+            {/* Toolbar */}
+            <Card className="p-4 mb-5">
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1 relative">
+                        <Icon name="search" className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <input
                             type="search"
                             placeholder="Cari nama pelanggan..."
+                            aria-label="Cari pelanggan"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:border-gray-500 focus:ring-1 focus:ring-gray-500"
+                            className={`${inputClass()} pl-9`}
                         />
                     </div>
-
-                    {/* Filter toggle */}
-                    <div className="flex rounded border border-gray-300 overflow-hidden bg-white shrink-0">
+                    <div className="flex border border-gray-200 rounded-[10px] overflow-hidden bg-white shrink-0" role="group" aria-label="Filter status">
                         <button
                             onClick={() => setFilterActive(true)}
-                            className={`px-4 py-2 text-sm font-medium transition
-                                ${filterActive ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50'}`}
+                            aria-pressed={filterActive}
+                            className={`h-10 px-4 text-sm font-medium transition-colors ${filterActive ? 'bg-ink text-white' : 'text-gray-600 hover:bg-gray-50'}`}
                         >
                             Aktif
                         </button>
                         <button
                             onClick={() => setFilterActive(false)}
-                            className={`px-4 py-2 text-sm font-medium transition border-l border-gray-300
-                                ${!filterActive ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-50'}`}
+                            aria-pressed={!filterActive}
+                            className={`h-10 px-4 text-sm font-medium transition-colors border-l border-gray-200 ${!filterActive ? 'bg-ink text-white' : 'text-gray-600 hover:bg-gray-50'}`}
                         >
                             Semua
                         </button>
                     </div>
                 </div>
+            </Card>
 
-                {/* Loading state */}
-                {loading && (
-                    <div className="py-12 text-center text-sm text-gray-500">
-                        Memuat data...
+            <Card className="overflow-hidden">
+                {firstLoad && loading ? (
+                    <div className="divide-y divide-gray-100 px-4 py-2">
+                        {[0, 1, 2, 3].map((i) => <SkeletonRow key={i} />)}
                     </div>
-                )}
-
-                {/* Empty state */}
-                {!loading && customers.length === 0 && (
-                    <div className="py-12 text-center border border-gray-200 rounded bg-white">
-                        <p className="text-sm font-medium text-gray-900">Tidak ada pelanggan ditemukan</p>
-                        <p className="text-sm text-gray-500 mt-1">Sesuaikan kata kunci pencarian atau filter status.</p>
-                    </div>
-                )}
-
-                {/* ---- DESKTOP TABLE ---- */}
-                {!loading && customers.length > 0 && (
-                    <div className="bg-white rounded border border-gray-200 overflow-x-auto">
-                        <table className="w-full text-sm text-left whitespace-nowrap">
-                            <thead>
-                                <tr>
-                                    <th className="px-4 py-3 text-sm text-gray-500 font-medium border-b border-gray-200">Nama</th>
-                                    <th className="px-4 py-3 text-sm text-gray-500 font-medium border-b border-gray-200">No. HP</th>
-                                    <th className="px-4 py-3 text-sm text-gray-500 font-medium border-b border-gray-200">Status</th>
-                                    <th className="px-4 py-3 text-sm text-gray-500 font-medium border-b border-gray-200 text-right">Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                                {customers.map((c) => (
-                                    <tr key={c.id} className="hover:bg-gray-50/50">
-                                        <td className="px-4 py-3 text-gray-900 font-medium">
-                                            <Link
-                                                to={`/bon?search=${c.name}`}
-                                                className="hover:underline"
-                                            >
-                                                {c.name}
-                                            </Link>
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-600">
-                                            {c.phone || <span className="text-gray-400">—</span>}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <StatusBadge isActive={c.is_active} />
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <ActionButtons customer={c} />
-                                        </td>
+                ) : customers.length === 0 ? (
+                    <EmptyState
+                        icon="users"
+                        title="Tidak ada pelanggan ditemukan"
+                        description={search ? 'Sesuaikan kata kunci pencarian atau filter status.' : 'Tambahkan pelanggan pertama untuk mulai mencatat bon.'}
+                        action={<Button onClick={() => navigate('/pelanggan/tambah')} icon="plus">Tambah Pelanggan</Button>}
+                    />
+                ) : (
+                    <>
+                        {/* Desktop */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-sm text-left whitespace-nowrap">
+                                <thead>
+                                    <tr className="border-b border-gray-100 bg-gray-50/60">
+                                        <th className="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Nama</th>
+                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">No. HP</th>
+                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Status</th>
+                                        <th className="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Aksi</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {customers.map((c) => (
+                                        <tr key={c.id} className="hover:bg-brand-50/30 transition-colors">
+                                            <td className="px-5 py-3 font-semibold text-gray-900">
+                                                <Link to={`/bon?search=${encodeURIComponent(c.name)}`} className="hover:text-brand-700">
+                                                    {c.name}
+                                                </Link>
+                                            </td>
+                                            <td className="px-4 py-3 text-gray-600 tnum">
+                                                {c.phone || <span className="text-gray-400">—</span>}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <Badge tone={c.is_active ? 'green' : 'gray'}>{c.is_active ? 'Aktif' : 'Nonaktif'}</Badge>
+                                            </td>
+                                            <td className="px-5 py-3 text-right">
+                                                <ActionButtons customer={c} />
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
 
-                {/* Summary */}
-                {!loading && customers.length > 0 && (
-                    <p className="text-xs text-gray-500 mt-4 text-right">
-                        Menampilkan {customers.length} pelanggan
-                    </p>
+                        {/* Mobile cards */}
+                        <ul className="md:hidden divide-y divide-gray-100">
+                            {customers.map((c) => (
+                                <li key={c.id} className="p-4 flex items-center gap-3">
+                                    <span className="w-9 h-9 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center shrink-0 text-[13px] font-bold">
+                                        {c.name.trim().charAt(0).toUpperCase()}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-semibold text-gray-900 truncate">{c.name}</p>
+                                        <p className="text-xs text-gray-500 mt-0.5 tnum">
+                                            {c.phone || 'Tanpa nomor'} · <Badge tone={c.is_active ? 'green' : 'gray'}>{c.is_active ? 'Aktif' : 'Nonaktif'}</Badge>
+                                        </p>
+                                    </div>
+                                    <ActionButtons customer={c} />
+                                </li>
+                            ))}
+                        </ul>
+                    </>
                 )}
-            </div>
-        </>
+            </Card>
+        </div>
     );
 }
