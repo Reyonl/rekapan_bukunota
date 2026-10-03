@@ -55,10 +55,10 @@ for (const [label, vp] of VIEWS) {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await ctx.newPage();
     await page.goto(BASE + '/', { waitUntil: 'networkidle' });
-    await page.locator('nav[aria-label="Navigasi utama"] a', { hasText: 'Bon' }).first().click();
+    await page.locator('nav[aria-label="Navigasi utama"] a', { hasText: 'Riwayat' }).first().click();
     await page.waitForURL('**/bon');
     const ok = await page.locator('h1').first().isVisible().catch(() => false);
-    console.log('[mobile-390] in-app nav Bon -> /bon', ok ? 'OK' : 'FAIL');
+    console.log('[mobile-390] in-app nav Riwayat -> /bon', ok ? 'OK' : 'FAIL');
     if (!ok) fails++;
     await ctx.close();
 }

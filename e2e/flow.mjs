@@ -27,7 +27,7 @@ const custChosen = (await page.getByText('Cari pelanggan...').count()) === 0;
 step('1. pelanggan terpilih', custChosen);
 
 // 2. header disimpan -> redirect /bon/:id/edit
-await page.getByRole('button', { name: /Mulai Input Catatan/ }).click();
+await page.getByRole('button', { name: /Lanjut ke Input Item/ }).click();
 await page.waitForURL(/\/bon\/\d+\/edit/, { timeout: 10000 });
 const bonId = page.url().match(/\/bon\/(\d+)\/edit/)[1];
 step('2. header tersimpan & redirect', !!bonId, 'bon id=' + bonId);
