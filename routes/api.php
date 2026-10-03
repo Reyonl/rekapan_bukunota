@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\CigaretteReportController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ProductController;
@@ -50,3 +51,7 @@ Route::delete('/transactions/{transaction}', [TransactionController::class, 'des
 Route::post('/transactions/{transaction}/items', [TransactionItemController::class, 'store']);
 Route::put('/transaction-items/{transactionItem}', [TransactionItemController::class, 'update']);
 Route::delete('/transaction-items/{transactionItem}', [TransactionItemController::class, 'destroy']);
+
+// Laporan Rokok
+Route::get('/reports/cigarettes', [CigaretteReportController::class, 'index']);
+Route::get('/transactions/{transaction}/cigarettes', [CigaretteReportController::class, 'show']);
