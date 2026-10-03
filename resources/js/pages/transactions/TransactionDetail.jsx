@@ -23,6 +23,7 @@ export default function TransactionDetail() {
     const [transaction, setTransaction] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [rokok, setRokok] = useState(null);
 
     // Print states
     const [thermalSize, setThermalSize] = useState(localStorage.getItem('thermalSize') || '58mm');
@@ -41,6 +42,9 @@ export default function TransactionDetail() {
                 setError('Bon tidak ditemukan.');
                 setLoading(false);
             });
+        api.get(`/transactions/${id}/cigarettes`)
+            .then(r => setRokok(r.data))
+            .catch(() => setRokok(null));
     }, [id]);
 
     // Generator raw text untuk Copy dan RawBT
@@ -414,6 +418,25 @@ export default function TransactionDetail() {
                         <Button variant="secondary" size="sm" onClick={handleExportPDF} icon="printer">Export PDF</Button>
                     </div>
                 </Card>
+
+                {rokok && rokok.total_quantity > 0 && (
+                    <Card className="p-4 md:p-5 mb-4">
+                        <div className="flex items-baseline justify-between gap-3">
+                            <h2 className="text-[13px] font-medium text-text-muted">Penjualan Rokok</h2>
+                            <p className="text-[15px] font-bold text-text-main tnum">{formatRupiah(rokok.total_amount)}</p>
+                        </div>
+                        <div className="mt-2 divide-y divide-border">
+                            {rokok.items.map(item => (
+                                <div key={item.id} className="flex items-baseline justify-between gap-3 py-2">
+                                    <span className="min-w-0 flex-1 truncate text-[14px] text-text-main">{item.product_name}</span>
+                                    <span className="shrink-0 text-[13px] text-text-muted tnum">{item.quantity} × {formatNumber(item.unit_price)}</span>
+                                    <span className="w-20 shrink-0 text-right text-[14px] font-semibold text-text-main tnum">{formatRupiah(item.subtotal)}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <p className="mt-2 text-[12.5px] text-text-muted tnum">{rokok.total_quantity} batang · {rokok.items.length} item</p>
+                    </Card>
+                )}
 
                 {printError && (
                     <div className="mb-4 p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex flex-col gap-2" role="alert">
