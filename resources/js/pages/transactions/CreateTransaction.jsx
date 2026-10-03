@@ -319,7 +319,7 @@ export default function CreateTransaction() {
             />
 
             {error && (
-                <div className="mb-5 flex items-start gap-2 p-3 bg-red-50 text-red-700 text-sm border border-red-200 rounded-xl" role="alert">
+                <div className="mb-5 flex items-start gap-2 p-3 bg-danger-soft text-danger text-sm border border-[#FECACA] rounded-xl" role="alert">
                     <Icon name="alert" className="w-4 h-4 mt-0.5 shrink-0" />
                     <span>{error}</span>
                 </div>
@@ -374,8 +374,8 @@ export default function CreateTransaction() {
 
                 {!headerSaved && (
                     <div className="mt-4">
-                        <Button onClick={saveHeader} loading={loading} loadingText="Menyimpan..." icon="check">
-                            Mulai Input Catatan
+                        <Button onClick={saveHeader} loading={loading} loadingText="Menyimpan...">
+                            Lanjut ke Input Item
                         </Button>
                     </div>
                 )}
@@ -476,7 +476,7 @@ export default function CreateTransaction() {
                             <div className="col-span-12 flex gap-2">
                                 <Button
                                     type="submit"
-                                    variant={editingItemId ? 'primary' : 'dark'}
+                                    variant="primary"
                                     loading={addingItem}
                                     loadingText="Menyimpan..."
                                     icon={editingItemId ? 'check' : 'plus'}
@@ -507,12 +507,12 @@ export default function CreateTransaction() {
                                 {/* Desktop */}
                                 <table className="hidden md:w-full text-sm md:block">
                                     <thead>
-                                        <tr className="border-b border-gray-100 bg-gray-50/60 text-left">
-                                            <th className="px-5 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider w-2/5">Item</th>
-                                            <th className="px-3 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider">Ket.</th>
-                                            <th className="px-3 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Qty</th>
-                                            <th className="px-3 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Harga</th>
-                                            <th className="px-3 py-2.5 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Total</th>
+                                        <tr className="border-b border-border text-left">
+                                            <th className="px-5 py-2.5 text-[11.5px] font-medium text-text-muted w-2/5">Item</th>
+                                            <th className="px-3 py-2.5 text-[11.5px] font-medium text-text-muted">Ket.</th>
+                                            <th className="px-3 py-2.5 text-[11.5px] font-medium text-text-muted text-right">Qty</th>
+                                            <th className="px-3 py-2.5 text-[11.5px] font-medium text-text-muted text-right">Harga</th>
+                                            <th className="px-3 py-2.5 text-[11.5px] font-medium text-text-muted text-right">Total</th>
                                             <th className="px-5 py-2.5 w-24"></th>
                                         </tr>
                                     </thead>
@@ -529,14 +529,14 @@ export default function CreateTransaction() {
                                                         <button
                                                             onClick={() => handleEditItem(item)}
                                                             aria-label={`Edit item ${item.product_name}`}
-                                                            className={`w-8 h-8 inline-flex items-center justify-center rounded-lg transition-colors ${editingItemId === item.id ? 'bg-brand-100 text-brand-700' : 'text-gray-400 hover:bg-brand-50 hover:text-brand-600'}`}
+                                                            className={`w-8 h-8 inline-flex items-center justify-center rounded-lg transition-colors ${editingItemId === item.id ? 'bg-brand-100 text-brand-700' : 'text-text-muted hover:bg-brand-50 hover:text-brand-600'}`}
                                                         >
                                                             <Icon name="edit" className="w-4 h-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => setDeletingItem(item)}
                                                             aria-label={`Hapus item ${item.product_name}`}
-                                                            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                                            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-gray-400 hover:bg-danger-soft hover:text-danger transition-colors"
                                                         >
                                                             <Icon name="trash" className="w-4 h-4" />
                                                         </button>
@@ -563,14 +563,14 @@ export default function CreateTransaction() {
                                                         <button
                                                             onClick={() => handleEditItem(item)}
                                                             aria-label={`Edit item ${item.product_name}`}
-                                                            className={`w-8 h-8 inline-flex items-center justify-center rounded-lg ${editingItemId === item.id ? 'bg-brand-100 text-brand-700' : 'text-gray-400 hover:bg-brand-50 hover:text-brand-600'}`}
+                                                            className={`w-8 h-8 inline-flex items-center justify-center rounded-lg ${editingItemId === item.id ? 'bg-brand-100 text-brand-700' : 'text-text-muted hover:bg-brand-50 hover:text-brand-600'}`}
                                                         >
                                                             <Icon name="edit" className="w-4 h-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => setDeletingItem(item)}
                                                             aria-label={`Hapus item ${item.product_name}`}
-                                                            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600"
+                                                            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-gray-400 hover:bg-danger-soft hover:text-danger"
                                                         >
                                                             <Icon name="trash" className="w-4 h-4" />
                                                         </button>
@@ -649,7 +649,7 @@ export default function CreateTransaction() {
 
                     {/* 5. Finalize — sticky agar total & aksi tidak hilang di bawah (mobile) */}
                     <div className="sticky bottom-[70px] md:bottom-4 z-10">
-                        <Card className="p-3 md:p-4 shadow-pop flex items-center justify-between gap-3">
+                        <Card className="p-3 md:p-4 flex items-center justify-between gap-3 shadow-[0_-2px_14px_rgb(20_23_28/0.07)]">
                             <div className="min-w-0">
                                 <p className="text-xs text-gray-500">Total bon</p>
                                 <p className={`text-lg font-bold tnum truncate ${Number(totalAmount) < 0 ? 'text-red-600' : 'text-gray-900'}`}>{formatRupiah(totalAmount)}</p>

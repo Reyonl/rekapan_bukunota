@@ -411,7 +411,7 @@ export default function TransactionDetail() {
                         <Link to={`/bon/${id}/edit`}>
                             <Button variant="secondary" size="sm" icon="edit">Edit Bon</Button>
                         </Link>
-                        <Button variant="ghost" size="sm" onClick={handleExportPDF} icon="printer">Export PDF</Button>
+                        <Button variant="secondary" size="sm" onClick={handleExportPDF} icon="printer">Export PDF</Button>
                     </div>
                 </Card>
 
