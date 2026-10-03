@@ -23,12 +23,14 @@ class CigaretteReportTest extends TestCase
         $this->service = new CigaretteReportService();
     }
 
+    private static int $seq = 0;
+
     private function makeItem(array $overrides = []): TransactionItem
     {
         $customer = Customer::create(['name' => 'Pembeli', 'phone' => '0812']);
         $transaction = Transaction::create([
             'customer_id' => $customer->id,
-            'transaction_number' => 'INV-TEST-1',
+            'transaction_number' => 'INV-TEST-' . (++self::$seq),
             'transaction_date' => '2026-10-03',
             'status' => 'completed',
             'payment_status' => 'paid',
@@ -104,6 +106,48 @@ class CigaretteReportTest extends TestCase
         $item = $this->makeItem(['product_id' => $product->id, 'product_name' => 'Kopi']);
 
         $this->assertFalse($this->service->isCigarette($item->fresh(['product.category'])));
+    }
+
+    // ---------- REGRESI BUG: kategori = sumber utama, bukan nama ----------
+
+    public function test_bang_lee_category_rokok_without_keyword_in_name(): void
+    {
+        // Kategori "Rokok" + produk "Bang Lee" (tanpa kata rokok) => WAJIB rokok.
+        $product = $this->productWithCategory('Bang Lee', 'Rokok');
+        $item = $this->makeItem(['product_id' => $product->id, 'product_name' => 'Bang Lee']);
+
+        $this->assertTrue($this->service->isCigarette($item->fresh(['product.category'])));
+
+        // dan masuk laporan (item breakdown + summary + per bon).
+        $report = $this->service->report('2026-10-03', '2026-10-03');
+        $this->assertSame(1, $report['summary']['cigarette_quantity']);
+        $this->assertSame(5000, $report['summary']['cigarette_sales']);
+        $this->assertContains('Bang Lee', array_column($report['items'], 'product_name'));
+        $this->assertSame(1, $report['summary']['bon_count']);
+    }
+
+    public function test_bang_lee_uppercase_and_spaces_still_via_category(): void
+    {
+        $product = $this->productWithCategory('BANG   LEE', 'ROKOK');
+        $item = $this->makeItem(['product_id' => $product->id, 'product_name' => 'BANG   LEE']);
+
+        $this->assertTrue($this->service->isCigarette($item->fresh(['product.category'])));
+    }
+
+    public function test_non_rokok_product_with_similar_text_not_swallowed(): void
+    {
+        // "Korokok" & "Roket" BUKAN substring "rokok" — tidak boleh ikut.
+        $p1 = $this->productWithCategory('Koroko Keras', 'Jajanan');
+        $i1 = $this->makeItem(['product_id' => $p1->id, 'product_name' => 'Koroko Keras']);
+        $this->assertFalse($this->service->isCigarette($i1->fresh(['product.category'])));
+
+        $i2 = $this->makeItem(['product_id' => null, 'product_name' => 'Roket-ropetan', 'description' => 'mainan anak']);
+        $this->assertFalse($this->service->isCigarette($i2->fresh()));
+
+        // kategori "Rokok" tapi item manual (product_id null) dengan nama tanpa rokok → tidak tertangkap
+        // via kategori (relasi tidak ada) — sesuai design; masuk laporan hanya bila nama/desc mengandung rokok.
+        $i3 = $this->makeItem(['product_id' => null, 'product_name' => 'Bang Lee']);
+        $this->assertFalse($this->service->isCigarette($i3->fresh()));
     }
 
     public function test_case6_manual_aqua_not_cigarette(): void

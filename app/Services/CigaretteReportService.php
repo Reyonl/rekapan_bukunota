@@ -53,18 +53,16 @@ class CigaretteReportService
     /**
      * Classifier CANONICAL untuk satu item.
      * Satu item cocok lewat beberapa jalur tetap menghasilkan true (dihitung sekali).
+     *
+     * Prioritas (per spec Laporan Rokok):
+     *  1. SUMBER UTAMA — relasi Product → Category bila product_id ada:
+     *     kategori mengandung keyword => WAJIB rokok, apapun nama produknya
+     *     (contoh: kategori "Rokok" + produk "Bang Lee" => true).
+     *  2. fallback teks (manual item / snapshot histori): product_name, lalu description.
      */
     public static function isCigarette(TransactionItem $item): bool
     {
-        if (self::textIsCigarette($item->product_name)) {
-            return true;
-        }
-
-        if (self::textIsCigarette($item->description)) {
-            return true;
-        }
-
-        // Category-based: hanya bila relasi product/category masih tersedia.
+        // 1. Category-based = sumber utama untuk item dengan product_id.
         if ($item->product_id !== null) {
             $categoryName = optional($item->product?->category)->name;
             if (self::textIsCigarette($categoryName)) {
@@ -72,7 +70,14 @@ class CigaretteReportService
             }
         }
 
-        return false;
+        // 2. Snapshot product_name — berlaku untuk produk MAUPUN manual item (product_id null),
+        //    dan tetap menyelamatkan item lama bila master renamed/di-deleted (name masih "rokok ...").
+        if (self::textIsCigarette($item->product_name)) {
+            return true;
+        }
+
+        // 3. Description (jarang dipakai, tetap didukung).
+        return self::textIsCigarette($item->description);
     }
 
     /**
