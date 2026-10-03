@@ -28,6 +28,11 @@ async function api(path, opts = {}) {
     }
 }
 
+// baseline: laporan sebelum seed (lingkungan dev bisa berisi data user sungguhan hari ini)
+const baselineRep = (await api(`/reports/cigarettes?date_from=${new Date().toISOString().slice(0, 10)}&date_to=${new Date().toISOString().slice(0, 10)}`)).body;
+const B_QTY = baselineRep.summary.cigarette_quantity;
+const B_SALES = baselineRep.summary.cigarette_sales;
+
 // ---------- setup data via API ----------
 const cust = (await api('/customers', { method: 'POST', body: JSON.stringify({ name: 'TEST E2E Rokok', phone: '0899000001' }) })).body;
 const prods = (await api('/products')).body;
@@ -65,8 +70,10 @@ const expSales = 2 * rokokProd.default_price + 30000 + 3 * 25000;
 // ---------- API assertions ----------
 const rep = await api(`/reports/cigarettes?date_from=${today}&date_to=${today}`);
 ok('API 200 + struktur', rep.status === 200 && rep.body.summary && rep.body.items && rep.body.transactions && rep.body.products, JSON.stringify(Object.keys(rep.body)));
-ok('API summary qty benar (rokok, bukan draft/non)', rep.body.summary.cigarette_quantity === expQty, `${rep.body.summary.cigarette_quantity} vs ${expQty}`);
-ok('API summary sales benar', rep.body.summary.cigarette_sales === expSales, `${rep.body.summary.cigarette_sales} vs ${expSales}`);
+const dQty = rep.body.summary.cigarette_quantity - B_QTY;
+const dSales = rep.body.summary.cigarette_sales - B_SALES;
+ok('API summary qty naik tepat (delta vs baseline)', dQty === expQty, `delta ${dQty} vs ${expQty}`);
+ok('API summary sales naik tepat (delta vs baseline)', dSales === expSales, `delta ${dSales} vs ${expSales}`);
 ok('API bon_count ≥ 1 & draft tidak masuk', rep.body.summary.bon_count >= 1);
 const names = rep.body.items.map((i) => i.product_name.toLowerCase());
 ok('API item kategori-rokok masuk', names.includes(rokokProd.name.toLowerCase()), rokokProd.name);
@@ -100,7 +107,7 @@ await page.waitForSelector(`section[aria-label="Penjualan per item"] span:text-i
 ok('UI halaman render + item muncul', true);
 const totalTxt = await page.locator('span.tnum', { hasText: 'Rp' }).first().textContent();
 const apiSales = String(rep.body.summary.cigarette_sales);
-ok('UI ringkasan total sesuai API', totalTxt.replace(/[^\d]/g, '') === apiSales.slice(0, apiSales.length) && totalTxt.replace(/[^\d]/g, '').startsWith(apiSales), `${totalTxt} vs ${apiSales}`);
+ok('UI ringkasan total sesuai API', totalTxt.replace(/[^\d]/g, '') === apiSales, `${totalTxt} vs ${apiSales}`);
 ok('UI preset Hari ini aktif', await page.locator('button', { hasText: 'Hari ini' }).first().isVisible());
 ok('UI tabel bon menampilkan nomor', await page.locator('a', { hasText: bon.transaction_number }).first().isVisible(), bon.transaction_number);
 
