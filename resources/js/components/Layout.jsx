@@ -7,6 +7,7 @@ const NAV = [
     { label: 'Riwayat Bon', to: '/bon', icon: 'receipt', match: (l) => l.startsWith('/bon') && l !== '/bon/buat' },
     { label: 'Pelanggan', to: '/pelanggan', icon: 'users', match: (l) => l.startsWith('/pelanggan') },
     { label: 'Item', to: '/item', icon: 'box', match: (l) => l.startsWith('/item') },
+    { label: 'Laporan Rokok', short: 'Rokok', to: '/laporan/rokok', icon: 'receipt', match: (l) => l.startsWith('/laporan') },
     { label: 'Pengaturan', to: '/pengaturan', icon: 'sliders', match: (l) => l.startsWith('/pengaturan') },
 ];
 
@@ -78,13 +79,13 @@ export default function Layout() {
                 </main>
             </div>
 
-            {/* Bottom nav mobile — 4 destinasi utama */}
+            {/* Bottom nav mobile — destinasi utama */}
             <nav
                 className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch border-t border-border bg-surface"
                 style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
                 aria-label="Navigasi utama"
             >
-                {[NAV[0], NAV[2], NAV[1], NAV[3], NAV[4]].map((item) => {
+                {[NAV[0], NAV[2], NAV[1], NAV[3], NAV[4], NAV[5]].map((item) => {
                     const active = item.match(location.pathname);
                     return (
                         <Link
@@ -96,7 +97,7 @@ export default function Layout() {
                         >
                             {active ? <span className="absolute top-0 h-0.5 w-8 rounded-full bg-brand-600" /> : null}
                             <Icon name={item.icon} size={20} />
-                            {item.label.split(' ')[0]}
+                            {item.short || item.label.split(' ')[0]}
                         </Link>
                     );
                 })}

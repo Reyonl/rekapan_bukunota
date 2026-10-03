@@ -13,6 +13,7 @@ import CreateTransaction from './pages/transactions/CreateTransaction';
 import TransactionList from './pages/transactions/TransactionList';
 import TransactionDetail from './pages/transactions/TransactionDetail';
 import PrintSettings from './pages/settings/PrintSettings';
+import CigaretteReport from './pages/CigaretteReport';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
           <Route path="bon/buat" element={<CreateTransaction />} />
           <Route path="bon/:id" element={<TransactionDetail />} />
           <Route path="bon/:id/edit" element={<CreateTransaction />} />
+          <Route path="laporan/rokok" element={<CigaretteReport />} />
           <Route path="pengaturan" element={<PrintSettings />} />
         </Route>
       </Routes>
