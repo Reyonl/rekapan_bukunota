@@ -1,67 +1,73 @@
-import React from 'react';
 import Icon from './Icon';
 
-/** Skeleton blok — shimmer halus, tanpa berlebihan. */
+/** Skeleton — satu warna netral, shimmer halus. */
 export function Skeleton({ className = '' }) {
-    return <div className={`animate-shimmer bg-gray-200/70 rounded-lg ${className}`} />;
+    return <div className={`animate-shimmer rounded-md bg-[#E8EAEE] ${className}`} />;
 }
 
-/** Skeleton baris list (nama + sub + angka kanan). */
+export function SkeletonRows({ rows = 5, className = '' }) {
+    return (
+        <div className={`space-y-3 p-4 ${className}`}>
+            {Array.from({ length: rows }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between gap-4">
+                    <div className="flex-1 space-y-2">
+                        <Skeleton className="h-3.5 w-2/5" />
+                        <Skeleton className="h-3 w-1/4" />
+                    </div>
+                    <Skeleton className="h-4 w-20" />
+                </div>
+            ))}
+        </div>
+    );
+}
+
+/** Baris skeleton untuk dalam Panel (dipakai list management). */
 export function SkeletonRow() {
     return (
-        <div className="flex items-center justify-between py-3.5 gap-4">
-            <div className="flex-1 space-y-1.5 min-w-0">
-                <Skeleton className="h-4 w-40 max-w-[60%]" />
-                <Skeleton className="h-3 w-24 max-w-[40%]" />
+        <div className="flex items-center justify-between gap-4 border-b border-border/70 px-4 py-3 last:border-0">
+            <div className="flex-1 space-y-2">
+                <Skeleton className="h-3.5 w-2/5" />
+                <Skeleton className="h-3 w-1/4" />
             </div>
-            <Skeleton className="h-5 w-20 shrink-0" />
+            <Skeleton className="h-4 w-20" />
         </div>
     );
 }
 
-/** Skeleton kartu statistik. */
 export function SkeletonCard() {
+    return <SkeletonRow />;
+}
+
+/** Empty state natural: `icon` prop lama diterima tapi tidak dipakai — memang tidak perlu. */
+export function EmptyState({ title = 'Belum ada data', description, hint, action }) {
     return (
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-2">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-6 w-28" />
+        <div className="px-4 py-10 text-center">
+            <p className="text-sm font-medium text-text-main">{title}</p>
+            {description || hint ? (
+                <p className="mx-auto mt-1 max-w-xs text-[13px] text-text-muted">{description || hint}</p>
+            ) : null}
+            {action ? <div className="mt-3 flex justify-center">{action}</div> : null}
         </div>
     );
 }
 
-/** Empty state informatif dengan CTA opsional. */
-export function EmptyState({ icon = 'empty', title, description, action, className = '' }) {
+export function ErrorState({ message = 'Terjadi kesalahan', onRetry }) {
     return (
-        <div className={`py-12 px-6 text-center ${className}`}>
-            <span className="inline-flex w-12 h-12 rounded-2xl bg-gray-100 text-gray-400 items-center justify-center mb-3">
-                <Icon name={icon} className="w-6 h-6" />
-            </span>
-            <p className="text-sm font-semibold text-gray-900">{title}</p>
-            {description && <p className="text-sm text-gray-500 mt-1 max-w-xs mx-auto">{description}</p>}
-            {action && <div className="mt-4 flex justify-center">{action}</div>}
-        </div>
-    );
-}
-
-/** Error state dengan retry — wording natural, bukan "something went wrong". */
-export function ErrorState({ message = 'Gagal memuat data.', onRetry, className = '' }) {
-    return (
-        <div className={`py-12 px-6 text-center ${className}`}>
-            <span className="inline-flex w-12 h-12 rounded-2xl bg-red-50 text-red-500 items-center justify-center mb-3">
-                <Icon name="alert" className="w-6 h-6" />
-            </span>
-            <p className="text-sm font-semibold text-gray-900">{message}</p>
-            <p className="text-sm text-gray-500 mt-1">Periksa koneksi lalu coba lagi.</p>
-            {onRetry && (
-                <div className="mt-4">
-                    <button
-                        onClick={onRetry}
-                        className="inline-flex items-center gap-1.5 h-9 px-4 text-sm font-medium rounded-[10px] border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
-                    >
-                        Coba lagi
-                    </button>
-                </div>
-            )}
+        <div className="px-4 py-10 text-center">
+            <p className="flex items-center justify-center gap-1.5 text-sm font-medium text-danger">
+                <Icon name="alertTriangle" size={15} />
+                {message}
+            </p>
+            {onRetry ? (
+                <button
+                    type="button"
+                    onClick={onRetry}
+                    className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#D4D7DC] bg-white px-3 text-[13px] font-medium text-text-main transition-colors hover:bg-[#F7F8FA]"
+                >
+                    <Icon name="refresh" size={14} />
+                    Coba lagi
+                </button>
+            ) : null}
         </div>
     );
 }

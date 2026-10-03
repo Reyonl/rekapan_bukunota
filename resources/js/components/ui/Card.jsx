@@ -1,73 +1,75 @@
-import React from 'react';
-import Icon from './Icon';
+/**
+ * Primitif permukaan — v2: border 1px + tipografi yang bekerja, shadow hampir nol.
+ */
 
+/** Panel: surface putih, border, radius 12, TANPA shadow. */
+export function Panel({ className = '', children }) {
+    return <div className={`rounded-xl border border-border bg-surface ${className}`}>{children}</div>;
+}
+
+/** Alias lama — kini border-only. */
 export function Card({ className = '', children, ...rest }) {
     return (
-        <div
-            className={`bg-white border border-gray-200 rounded-2xl shadow-[0_1px_2px_rgb(16_19_24/0.05)] ${className}`}
-            {...rest}
-        >
+        <div className={`rounded-xl border border-border bg-surface ${className}`} {...rest}>
             {children}
         </div>
     );
 }
 
 export function SectionTitle({ children, className = '' }) {
-    return (
-        <h2 className={`text-sm font-semibold text-gray-900 tracking-wide ${className}`}>
-            {children}
-        </h2>
-    );
+    return <h2 className={`text-[13px] font-semibold tracking-tight text-text-main ${className}`}>{children}</h2>;
 }
 
-export function PageHeader({ title, subtitle, actions, back }) {
+/** Badge status bon — radius kecil (pill khusus status). Map nilai API: paid/unpaid/draft. */
+export function StatusBadge({ status }) {
+    const s = String(status || '').toLowerCase();
+    let cls = 'bg-[#F1F2F4] text-text-muted';
+    let label = status;
+    if (s === 'paid' || s === 'lunas') { cls = 'bg-success-soft text-success'; label = 'Lunas'; }
+    else if (s === 'unpaid' || s === 'hutang') { cls = 'bg-warning-soft text-warning'; label = 'Hutang'; }
+    else if (s === 'draft') { label = 'Draft'; }
+    else if (s === 'completed') { cls = 'bg-[#F1F2F4] text-text-muted'; label = 'Selesai'; }
     return (
-        <div className="mb-6">
-            {back}
-            <div className="flex flex-wrap items-start justify-between gap-3 mt-1">
-                <div className="min-w-0">
-                    <h1 className="text-xl md:text-2xl font-bold text-gray-900 tracking-tight break-words">
-                        {title}
-                    </h1>
-                    {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
-                </div>
-                {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
-            </div>
-        </div>
-    );
-}
-
-const STATUS_MAP = {
-    paid: { label: 'Lunas', icon: 'check', cls: 'bg-green-50 text-green-700 border-green-200' },
-    unpaid: { label: 'Hutang', icon: 'clock', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-    completed: { label: 'Selesai', icon: 'checkCircle', cls: 'bg-gray-100 text-gray-700 border-gray-200' },
-    draft: { label: 'Draft', icon: 'edit', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
-};
-
-export function StatusBadge({ status, paidLabel = 'Lunas', unpaidLabel = 'Hutang', className = '' }) {
-    const cfg = STATUS_MAP[status] || { label: status, icon: 'info', cls: 'bg-gray-100 text-gray-600 border-gray-200' };
-    const label = status === 'paid' ? paidLabel : status === 'unpaid' ? unpaidLabel : cfg.label;
-    return (
-        <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-semibold leading-5 ${cfg.cls} ${className}`}
-        >
-            <Icon name={cfg.icon} className="w-3 h-3" strokeWidth={2.5} />
+        <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium ${cls}`}>
             {label}
         </span>
     );
 }
 
-export function Badge({ children, tone = 'gray', className = '' }) {
+/** Badge generik. */
+export function Badge({ children, tone = 'neutral', className = '' }) {
     const tones = {
-        gray: 'bg-gray-100 text-gray-700',
+        neutral: 'bg-[#F1F2F4] text-text-muted',
+        gray: 'bg-[#F1F2F4] text-text-muted',
+        sky: 'bg-brand-50 text-brand-700',
         brand: 'bg-brand-50 text-brand-700',
-        green: 'bg-green-50 text-green-700',
-        amber: 'bg-amber-50 text-amber-700',
-        red: 'bg-red-50 text-red-700',
+        success: 'bg-success-soft text-success',
+        green: 'bg-success-soft text-success',
+        warning: 'bg-warning-soft text-warning',
+        amber: 'bg-warning-soft text-warning',
+        danger: 'bg-danger-soft text-danger',
+        red: 'bg-danger-soft text-danger',
     };
     return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${tones[tone]} ${className}`}>
+        <span className={`inline-flex rounded-md px-1.5 py-0.5 text-[11px] font-medium ${tones[tone] || tones.neutral} ${className}`}>
             {children}
         </span>
+    );
+}
+
+/** Heading halaman — tanpa ikon; hierarchy murni tipografi. Mendukung `actions` prop atau children. */
+export function PageHeader({ title, subtitle, actions, back, children }) {
+    const right = actions || children;
+    return (
+        <div className="mb-5">
+            {back}
+            <div className={`flex flex-wrap items-end justify-between gap-3 ${back ? 'mt-1' : ''}`}>
+                <div className="min-w-0">
+                    <h1 className="text-lg font-bold tracking-tight text-text-main">{title}</h1>
+                    {subtitle ? <p className="mt-0.5 text-sm text-text-muted">{subtitle}</p> : null}
+                </div>
+                {right ? <div className="flex flex-wrap items-center gap-2">{right}</div> : null}
+            </div>
+        </div>
     );
 }
