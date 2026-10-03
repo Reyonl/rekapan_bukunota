@@ -2,7 +2,7 @@
 import { chromium } from 'playwright';
 const BASE = process.env.SMOKE_BASE || 'http://127.0.0.1:8000';
 const VPS = [360, 390, 430, 768, 1024, 1280, 1440];
-const ROUTES = ['/', '/bon', '/bon/buat', '/pelanggan', '/item', '/item/kategori', '/pengaturan'];
+const ROUTES = ['/', '/bon', '/bon/buat', '/pelanggan', '/item', '/item/kategori', '/laporan/rokok', '/pengaturan'];
 
 const browser = await chromium.launch();
 let fails = 0;

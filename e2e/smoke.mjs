@@ -11,6 +11,7 @@ const ROUTES = [
     ['/pelanggan/tambah', 'Tambah Pelanggan'],
     ['/item', 'Item'],
     ['/item/kategori', 'Kategori'],
+    ['/laporan/rokok', 'Laporan Rokok'],
     ['/pengaturan', 'Pengaturan'],
 ];
 const VIEWS = [
