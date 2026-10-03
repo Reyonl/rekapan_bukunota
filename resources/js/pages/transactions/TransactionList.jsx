@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import { formatRupiah, formatDate } from '../../utils/format';
-import { Card, PageHeader, StatusBadge, Badge } from '../../components/ui/Card';
+import { PageHeader, StatusBadge, Badge } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import Icon from '../../components/ui/Icon';
-import Field, { inputClass } from '../../components/ui/Form';
+import { inputSmClass } from '../../components/ui/Form';
 import { ConfirmDialog } from '../../components/ui/Modal';
 import { SkeletonRow, EmptyState, ErrorState } from '../../components/ui/States';
-import { toast } from '../../stores/toastStore';
+import { toast } from '../../utils/feedback';
 
 export default function TransactionList() {
     const navigate = useNavigate();
@@ -22,7 +21,6 @@ export default function TransactionList() {
     const [dateTo, setDateTo] = useState('');
     const [page, setPage] = useState(1);
 
-    // delete via ConfirmDialog — sama persis endpoint & flow, tanpa window.confirm
     const [confirmTarget, setConfirmTarget] = useState(null);
     const [deleting, setDeleting] = useState(false);
 
@@ -72,17 +70,27 @@ export default function TransactionList() {
     };
 
     const hasFilter = !!(debounced || dateFrom || dateTo);
+    const resetFilter = () => { setSearch(''); setDateFrom(''); setDateTo(''); };
 
     const ActionRow = ({ t, className = '' }) => (
-        <div className={`flex items-center gap-1.5 ${className}`}>
-            <Button size="sm" variant="secondary" onClick={() => navigate(`/bon/${t.id}`)}>Lihat</Button>
-            <Button size="sm" variant="soft" icon="edit" onClick={() => navigate(`/bon/${t.id}/edit`)} aria-label={`Edit bon ${t.transaction_number}`}>Edit</Button>
+        <div className={`flex items-center gap-1 ${className}`}>
+            <button
+                onClick={() => navigate(`/bon/${t.id}`)}
+                className="h-7 rounded-md px-2 text-[12.5px] font-medium text-text-muted transition-colors hover:bg-[#F1F2F4] hover:text-text-main"
+            >
+                Lihat
+            </button>
+            <button
+                onClick={() => navigate(`/bon/${t.id}/edit`)}
+                className="h-7 rounded-md px-2 text-[12.5px] font-medium text-text-muted transition-colors hover:bg-[#F1F2F4] hover:text-text-main"
+            >
+                Edit
+            </button>
             <button
                 onClick={() => setConfirmTarget(t)}
-                aria-label={`Hapus bon ${t.transaction_number}`}
-                className="w-9 h-9 inline-flex items-center justify-center rounded-[10px] text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                className="h-7 rounded-md px-2 text-[12.5px] font-medium text-text-muted transition-colors hover:bg-danger-soft hover:text-danger"
             >
-                <Icon name="trash" className="w-4 h-4" />
+                Hapus
             </button>
         </div>
     );
@@ -91,88 +99,85 @@ export default function TransactionList() {
         <div>
             <PageHeader
                 title="Riwayat Bon"
-                subtitle={meta ? `${meta.total ?? transactions.length} bon tercatat` : undefined}
-                actions={<Link to="/bon/buat"><Button icon="plus">Buat Bon</Button></Link>}
+                actions={
+                    <Link to="/bon/buat">
+                        <Button>Buat Bon</Button>
+                    </Link>
+                }
             />
 
-            {/* Filter */}
-            <Card className="p-4 mb-5">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <Field label="Cari">
-                        <div className="relative">
-                            <Icon name="search" className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                            <input
-                                type="text"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                placeholder="Pelanggan atau nomor bon"
-                                aria-label="Cari bon"
-                                className={`${inputClass()} pl-9`}
-                            />
-                        </div>
-                    </Field>
-                    <Field label="Dari tanggal">
-                        <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} aria-label="Dari tanggal" className={inputClass()} />
-                    </Field>
-                    <Field label="Sampai tanggal">
-                        <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} aria-label="Sampai tanggal" className={inputClass()} />
-                    </Field>
-                </div>
-                {hasFilter && (
+            {/* Filter plain satu baris — tanpa card, tanpa label besar */}
+            <div className="flex flex-wrap items-center gap-2">
+                <input
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Cari pelanggan atau nomor bon"
+                    aria-label="Cari bon"
+                    className={`${inputSmClass()} min-w-[200px] flex-1 sm:max-w-xs`}
+                />
+                <label className="inline-flex items-center gap-1.5 text-[12.5px] text-text-muted">
+                    <span className="hidden sm:inline">Dari</span>
+                    <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} aria-label="Dari tanggal" className={`${inputSmClass()} w-auto`} />
+                </label>
+                <label className="inline-flex items-center gap-1.5 text-[12.5px] text-text-muted">
+                    <span className="hidden sm:inline">Sampai</span>
+                    <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} aria-label="Sampai tanggal" className={`${inputSmClass()} w-auto`} />
+                </label>
+                {hasFilter ? (
                     <button
-                        onClick={() => { setSearch(''); setDateFrom(''); setDateTo(''); }}
-                        className="mt-3 text-xs font-medium text-brand-600 hover:text-brand-700 inline-flex items-center gap-1"
+                        onClick={resetFilter}
+                        className="text-[13px] font-medium text-text-muted underline-offset-2 transition-colors hover:text-text-main hover:underline"
                     >
-                        <Icon name="x" className="w-3.5 h-3.5" /> Bersihkan filter
+                        Bersihkan
                     </button>
-                )}
-            </Card>
+                ) : null}
+            </div>
 
-            <Card className="overflow-hidden">
+            <div className="mt-4 rounded-xl border border-border bg-surface">
                 {loading ? (
-                    <div className="divide-y divide-gray-100 px-4 py-2">
+                    <div>
                         {[0, 1, 2, 3].map((i) => <SkeletonRow key={i} />)}
                     </div>
                 ) : loadError ? (
                     <ErrorState message="Gagal memuat transaksi." onRetry={fetchTransactions} />
                 ) : transactions.length === 0 ? (
                     <EmptyState
-                        icon="receipt"
                         title={hasFilter ? 'Tidak ada bon yang cocok.' : 'Belum ada bon yang dibuat.'}
                         description={hasFilter ? 'Coba ubah kata kunci atau rentang tanggalnya.' : 'Mulai catat penjualan dengan membuat bon pertama.'}
                         action={hasFilter
-                            ? <Button size="sm" variant="secondary" onClick={() => { setSearch(''); setDateFrom(''); setDateTo(''); }}>Bersihkan filter</Button>
-                            : <Link to="/bon/buat"><Button>Buat Bon</Button></Link>}
+                            ? <Button size="sm" variant="secondary" onClick={resetFilter}>Bersihkan filter</Button>
+                            : <Link to="/bon/buat"><Button size="sm">Buat Bon</Button></Link>}
                     />
                 ) : (
                     <>
-                        {/* Desktop table */}
-                        <div className="hidden xl:block overflow-x-auto">
+                        {/* Desktop: tabel bisnis — header muted kecil, nominal kanan, divider halus */}
+                        <div className="hidden lg:block overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead>
-                                    <tr className="border-b border-gray-100 bg-gray-50/60">
-                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">No Bon</th>
-                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Pelanggan</th>
-                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Tanggal</th>
-                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Total</th>
-                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Status</th>
-                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Aksi</th>
+                                    <tr className="border-b border-border">
+                                        <th className="px-4 py-2 text-[11.5px] font-medium text-text-muted">No Bon</th>
+                                        <th className="px-4 py-2 text-[11.5px] font-medium text-text-muted">Pelanggan</th>
+                                        <th className="px-4 py-2 text-[11.5px] font-medium text-text-muted">Tanggal</th>
+                                        <th className="px-4 py-2 text-[11.5px] font-medium text-text-muted text-right">Total</th>
+                                        <th className="px-4 py-2 text-[11.5px] font-medium text-text-muted">Status</th>
+                                        <th className="px-4 py-2 text-[11.5px] font-medium text-text-muted text-right">Aksi</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100">
+                                <tbody className="divide-y divide-border">
                                     {transactions.map((t) => (
-                                        <tr key={t.id} className="hover:bg-brand-50/30 transition-colors">
-                                            <td className="px-4 py-3 text-gray-500 font-mono text-xs whitespace-nowrap">{t.transaction_number}</td>
-                                            <td className="px-4 py-3 font-semibold text-gray-900">{t.customer?.name || '-'}</td>
-                                            <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatDate(t.transaction_date)}</td>
-                                            <td className="px-4 py-3 text-right font-bold text-gray-900 tnum">{formatRupiah(t.total_amount)}</td>
-                                            <td className="px-4 py-3">
+                                        <tr key={t.id} className="transition-colors duration-150 hover:bg-[#F7F8FA]">
+                                            <td className="px-4 py-2.5 text-[13px] text-text-muted tnum whitespace-nowrap">{t.transaction_number}</td>
+                                            <td className="px-4 py-2.5 max-w-[200px] truncate font-medium">{t.customer?.name || '-'}</td>
+                                            <td className="px-4 py-2.5 text-[13px] text-text-muted whitespace-nowrap">{formatDate(t.transaction_date)}</td>
+                                            <td className="px-4 py-2.5 text-right font-semibold tnum">{formatRupiah(t.total_amount)}</td>
+                                            <td className="px-4 py-2.5">
                                                 <div className="flex items-center gap-1.5 flex-wrap">
                                                     <StatusBadge status={t.payment_status} />
-                                                    {t.status === 'draft' && <Badge tone="brand">Draft</Badge>}
+                                                    {t.status === 'draft' && <Badge>Draft</Badge>}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-4 py-2.5">
                                                 <ActionRow t={t} className="justify-end" />
                                             </td>
                                         </tr>
@@ -181,44 +186,44 @@ export default function TransactionList() {
                             </table>
                         </div>
 
-                        {/* Mobile cards */}
-                        <ul className="xl:hidden divide-y divide-gray-100">
+                        {/* Mobile/tablet: compact list, bukan tabel diperkecil */}
+                        <ul className="lg:hidden divide-y divide-border">
                             {transactions.map((t) => (
-                                <li key={t.id} className="p-4">
+                                <li key={t.id} className="px-4 py-3">
                                     <button onClick={() => navigate(`/bon/${t.id}`)} className="w-full text-left">
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
-                                                <p className="font-semibold text-gray-900 truncate">{t.customer?.name || '-'}</p>
-                                                <p className="text-xs text-gray-500 font-mono mt-0.5">{t.transaction_number}</p>
+                                                <p className="text-sm font-semibold truncate">{t.customer?.name || '-'}</p>
+                                                <p className="text-[12px] text-text-muted mt-0.5 tnum">{t.transaction_number} · {formatDate(t.transaction_date)}</p>
                                             </div>
-                                            <p className="font-bold text-gray-900 tnum shrink-0">{formatRupiah(t.total_amount)}</p>
+                                            <p className="text-sm font-semibold tnum shrink-0">{formatRupiah(t.total_amount)}</p>
                                         </div>
-                                        <div className="flex items-center gap-2 mt-2">
+                                        <div className="flex items-center gap-2 mt-1.5">
                                             <StatusBadge status={t.payment_status} />
-                                            {t.status === 'draft' && <Badge tone="brand">Draft</Badge>}
-                                            <span className="text-xs text-gray-500 ml-auto">{formatDate(t.transaction_date)}</span>
+                                            {t.status === 'draft' && <Badge>Draft</Badge>}
                                         </div>
                                     </button>
-                                    <ActionRow t={t} className="mt-3 pt-3 border-t border-gray-100" />
+                                    <ActionRow t={t} className="mt-2 pt-2 border-t border-border" />
                                 </li>
                             ))}
                         </ul>
 
                         {/* Pagination */}
                         {meta && meta.last_page > 1 && (
-                            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/60 flex items-center justify-between gap-3">
-                                <span className="text-sm text-gray-500">
-                                    Hal. <span className="font-semibold text-gray-800 tnum">{meta.current_page}</span> / <span className="tnum">{meta.last_page}</span>
+                            <div className="px-4 py-2.5 border-t border-border flex items-center justify-between gap-3">
+                                <span className="text-[13px] text-text-muted">
+                                    Hal. <span className="font-semibold text-text-main tnum">{meta.current_page}</span> / <span className="tnum">{meta.last_page}</span>
+                                    <span className="ml-2 tnum">({meta.total} bon)</span>
                                 </span>
                                 <div className="flex gap-2">
-                                    <Button size="sm" variant="secondary" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))} icon="chevronLeft">Prev</Button>
-                                    <Button size="sm" variant="secondary" disabled={page === meta.last_page} onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}>Next <Icon name="chevronRight" className="w-4 h-4" /></Button>
+                                    <Button size="sm" variant="secondary" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Sebelumnya</Button>
+                                    <Button size="sm" variant="secondary" disabled={page === meta.last_page} onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}>Berikutnya</Button>
                                 </div>
                             </div>
                         )}
                     </>
                 )}
-            </Card>
+            </div>
 
             <ConfirmDialog
                 open={!!confirmTarget}
@@ -226,8 +231,8 @@ export default function TransactionList() {
                 onConfirm={doDelete}
                 loading={deleting}
                 title="Hapus bon ini?"
-                message={`Bon ${confirmTarget?.transaction_number || ''} beserta semua catatan itemnya akan dihapus permanen.`}
-                confirmText="Hapus"
+                message={`Bon ${confirmTarget?.transaction_number || ''} beserta semua catatan itemnya akan dihapus permanen dan tidak dapat dikembalikan.`}
+                confirmText="Ya, Hapus"
             />
         </div>
     );
