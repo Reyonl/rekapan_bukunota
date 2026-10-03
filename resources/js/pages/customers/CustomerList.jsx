@@ -115,7 +115,7 @@ export default function CustomerList() {
             <button
                 onClick={() => handleDeleteRequest(customer)}
                 aria-label={`Hapus pelanggan ${customer.name}`}
-                className="w-9 h-9 inline-flex items-center justify-center rounded-[10px] text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                className="w-9 h-9 inline-flex items-center justify-center rounded-[10px] text-text-muted hover:bg-danger-soft hover:text-danger transition-colors"
             >
                 <Icon name="trash" className="w-4 h-4" />
             </button>
@@ -158,14 +158,14 @@ export default function CustomerList() {
                         <button
                             onClick={() => setFilterActive(true)}
                             aria-pressed={filterActive}
-                            className={`h-10 px-4 text-sm font-medium transition-colors ${filterActive ? 'bg-ink text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                            className={`h-10 px-4 text-sm font-medium transition-colors ${filterActive ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
                         >
                             Aktif
                         </button>
                         <button
                             onClick={() => setFilterActive(false)}
                             aria-pressed={!filterActive}
-                            className={`h-10 px-4 text-sm font-medium transition-colors border-l border-gray-200 ${!filterActive ? 'bg-ink text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                            className={`h-10 px-4 text-sm font-medium transition-colors border-l border-gray-200 ${!filterActive ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
                         >
                             Semua
                         </button>
@@ -188,14 +188,14 @@ export default function CustomerList() {
                 ) : (
                     <>
                         {/* Desktop */}
-                        <div className="hidden xl:block overflow-x-auto">
+                        <div className="hidden lg:block overflow-x-auto">
                             <table className="w-full text-sm text-left whitespace-nowrap">
                                 <thead>
-                                    <tr className="border-b border-gray-100 bg-gray-50/60">
-                                        <th className="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Nama</th>
-                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">No. HP</th>
-                                        <th className="px-4 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider">Status</th>
-                                        <th className="px-5 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Aksi</th>
+                                    <tr className="border-b border-border">
+                                        <th className="px-5 py-3 text-[11.5px] font-medium text-text-muted">Nama</th>
+                                        <th className="px-4 py-3 text-[11.5px] font-medium text-text-muted">No. HP</th>
+                                        <th className="px-4 py-3 text-[11.5px] font-medium text-text-muted">Status</th>
+                                        <th className="px-5 py-3 text-[11.5px] font-medium text-text-muted text-right">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -222,7 +222,7 @@ export default function CustomerList() {
                         </div>
 
                         {/* Mobile cards */}
-                        <ul className="xl:hidden divide-y divide-gray-100">
+                        <ul className="lg:hidden divide-y divide-border">
                             {customers.map((c) => (
                                 <li key={c.id} className="p-4 flex items-center gap-3">
                                     <span className="w-9 h-9 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center shrink-0 text-[13px] font-bold">

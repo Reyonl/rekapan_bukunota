@@ -5,7 +5,7 @@ import { formatRupiah } from '../../utils/format';
 import { Card, PageHeader, Badge } from '../../components/ui/Card';
 import Button, { Spinner } from '../../components/ui/Button';
 import Icon from '../../components/ui/Icon';
-import Field, { inputClass } from '../../components/ui/Form';
+import Field, { inputClass, inputSmClass } from '../../components/ui/Form';
 import Modal, { ConfirmDialog } from '../../components/ui/Modal';
 import { SkeletonRow, EmptyState, ErrorState } from '../../components/ui/States';
 import { toast } from '../../stores/toastStore';
@@ -158,7 +158,7 @@ function ProductFormModal({ product, categories, onSave, onClose }) {
 
                 <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
                     <Button variant="secondary" type="button" onClick={onClose} disabled={saving}>Batal</Button>
-                    <Button type="submit" variant="dark" loading={saving} loadingText="Menyimpan...">
+                    <Button type="submit" variant="primary" loading={saving} loadingText="Menyimpan...">
                         {isEdit ? 'Simpan Perubahan' : 'Tambah Item'}
                     </Button>
                 </div>
@@ -278,14 +278,14 @@ export default function ProductList() {
             <button
                 onClick={() => openEdit(p)}
                 aria-label={`Edit item ${p.name}`}
-                className="w-9 h-9 inline-flex items-center justify-center rounded-[10px] text-gray-400 hover:bg-brand-50 hover:text-brand-600 transition-colors"
+                className="w-9 h-9 inline-flex items-center justify-center rounded-[10px] text-text-muted hover:bg-brand-50 hover:text-brand-600 transition-colors"
             >
                 <Icon name="edit" className="w-4 h-4" />
             </button>
             <button
                 onClick={() => setDeleteTarget(p)}
                 aria-label={`Hapus item ${p.name}`}
-                className="w-9 h-9 inline-flex items-center justify-center rounded-[10px] text-gray-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                className="w-9 h-9 inline-flex items-center justify-center rounded-[10px] text-gray-400 hover:bg-danger-soft hover:text-danger transition-colors"
             >
                 <Icon name="trash" className="w-4 h-4" />
             </button>
@@ -313,53 +313,48 @@ export default function ProductList() {
                 actions={
                     <div className="flex gap-2">
                         <Link to="/item/kategori" className="hidden sm:block">
-                            <Button variant="secondary" size="md" icon="tag">Kategori</Button>
+                            <Button variant="secondary" size="md">Kategori</Button>
                         </Link>
-                        <Button icon="plus" onClick={openAdd}>Tambah Item</Button>
+                        <Button onClick={openAdd}>Tambah Item</Button>
                     </div>
                 }
             />
 
-            {/* Filter */}
-            <Card className="p-4 mb-5">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="relative">
-                        <Icon name="search" className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        <input
-                            type="text"
-                            placeholder="Cari nama item..."
-                            aria-label="Cari item"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className={`${inputClass()} pl-9`}
-                        />
-                    </div>
-                    <select
-                        value={filterCategory}
-                        onChange={(e) => setFilterCategory(e.target.value)}
-                        aria-label="Filter kategori"
-                        className={inputClass()}
-                    >
-                        <option value="">Semua Kategori</option>
-                        {categories.map((c) => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                    </select>
-                    <select
-                        value={filterActive}
-                        onChange={(e) => setFilterActive(e.target.value)}
-                        aria-label="Filter status"
-                        className={inputClass()}
-                    >
-                        <option value="">Semua Status</option>
-                        <option value="1">Aktif</option>
-                        <option value="0">Nonaktif</option>
-                    </select>
-                </div>
-                <Link to="/item/kategori" className="sm:hidden mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:text-brand-700">
-                    <Icon name="tag" className="w-4 h-4" /> Kelola Kategori
+            {/* Filter plain satu baris */}
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+                <input
+                    type="search"
+                    placeholder="Cari nama item..."
+                    aria-label="Cari item"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className={`${inputSmClass()} min-w-[180px] flex-1 sm:max-w-xs`}
+                />
+                <select
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                    aria-label="Filter kategori"
+                    className={`${inputSmClass()} w-auto`}
+                >
+                    <option value="">Semua Kategori</option>
+                    {categories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                </select>
+                <select
+                    value={filterActive}
+                    onChange={(e) => setFilterActive(e.target.value)}
+                    aria-label="Filter status"
+                    className={`${inputSmClass()} w-auto`}
+                >
+                    <option value="">Semua Status</option>
+                    <option value="1">Aktif</option>
+                    <option value="0">Nonaktif</option>
+                </select>
+                <Link to="/item/kategori" className="sm:hidden inline-flex items-center text-[13px] font-medium text-brand-600 hover:text-brand-700">
+                    Kelola Kategori
                 </Link>
-            </Card>
+            </div>
 
             <Card className="overflow-hidden">
                 {error ? (
@@ -378,31 +373,29 @@ export default function ProductList() {
                 ) : (
                     <>
                         {/* Desktop */}
-                        <div className="hidden xl:block overflow-x-auto">
+                        <div className="hidden lg:block overflow-x-auto">
                             <table className="w-full text-left border-collapse text-sm">
                                 <thead>
-                                    <tr className="border-b border-gray-100 bg-gray-50/60">
-                                        <th className="py-3 px-5 font-semibold text-gray-500 text-xs uppercase tracking-wider">Nama Item</th>
-                                        <th className="py-3 px-4 font-semibold text-gray-500 text-xs uppercase tracking-wider">Kategori</th>
-                                        <th className="py-3 px-4 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Harga Default</th>
-                                        <th className="py-3 px-4 font-semibold text-gray-500 text-xs uppercase tracking-wider">Satuan</th>
-                                        <th className="py-3 px-4 font-semibold text-gray-500 text-xs uppercase tracking-wider">Status</th>
-                                        <th className="py-3 px-5 font-semibold text-gray-500 text-xs uppercase tracking-wider text-right">Aksi</th>
+                                    <tr className="border-b border-border">
+                                        <th className="py-2 px-4 text-[11.5px] font-medium text-text-muted">Nama Item</th>
+                                        <th className="py-2 px-4 text-[11.5px] font-medium text-text-muted">Kategori</th>
+                                        <th className="py-2 px-4 text-[11.5px] font-medium text-text-muted text-right">Harga Default</th>
+                                        <th className="py-2 px-4 text-[11.5px] font-medium text-text-muted">Satuan</th>
+                                        <th className="py-2 px-4 text-[11.5px] font-medium text-text-muted">Status</th>
+                                        <th className="py-2 px-4 text-[11.5px] font-medium text-text-muted text-right">Aksi</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100">
+                                <tbody className="divide-y divide-border">
                                     {products.map((p) => {
                                         const cat = categories.find((c) => c.id === p.category_id);
                                         return (
-                                            <tr key={p.id} className="hover:bg-brand-50/30 transition-colors">
-                                                <td className="py-3 px-5 font-semibold text-gray-900">{p.name}</td>
-                                                <td className="py-3 px-4">
-                                                    {cat ? <Badge tone="brand">{cat.name}</Badge> : <span className="text-gray-400">—</span>}
-                                                </td>
-                                                <td className="py-3 px-4 text-right text-gray-900 font-medium tnum">{formatRupiah(p.default_price)}</td>
-                                                <td className="py-3 px-4 text-gray-600">{p.unit}</td>
-                                                <td className="py-3 px-4"><StatusToggle p={p} /></td>
-                                                <td className="py-3 px-5 text-right"><Actions p={p} /></td>
+                                            <tr key={p.id} className="transition-colors duration-150 hover:bg-[#F7F8FA]">
+                                                <td className="py-2.5 px-4 font-medium text-gray-900">{p.name}</td>
+                                                <td className="py-2.5 px-4 text-[13px] text-text-muted">{cat ? cat.name : '—'}</td>
+                                                <td className="py-2.5 px-4 text-right text-gray-900 font-semibold tnum">{formatRupiah(p.default_price)}</td>
+                                                <td className="py-2.5 px-4 text-gray-600">{p.unit}</td>
+                                                <td className="py-2.5 px-4"><StatusToggle p={p} /></td>
+                                                <td className="py-2.5 px-4 text-right"><Actions p={p} /></td>
                                             </tr>
                                         );
                                     })}
@@ -411,7 +404,7 @@ export default function ProductList() {
                         </div>
 
                         {/* Mobile */}
-                        <ul className="xl:hidden divide-y divide-gray-100">
+                        <ul className="lg:hidden divide-y divide-border">
                             {products.map((p) => {
                                 const cat = categories.find((c) => c.id === p.category_id);
                                 return (

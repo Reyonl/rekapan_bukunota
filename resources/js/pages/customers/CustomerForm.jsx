@@ -188,7 +188,7 @@ export default function CustomerForm() {
                         </Link>
                         <Button
                             type="submit"
-                            variant="dark"
+                            variant="primary"
                             loading={submitLoading}
                             loadingText={isEdit ? 'Menyimpan...' : 'Menambahkan...'}
                         >

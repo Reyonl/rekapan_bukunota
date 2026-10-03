@@ -51,7 +51,7 @@ function AddCategoryForm({ onSave, onCancel }) {
                     {error && <p className="mt-1.5 text-xs text-red-600" role="alert">{error}</p>}
                 </div>
                 <div className="flex gap-2">
-                    <Button type="submit" variant="dark" loading={saving} loadingText="Menyimpan...">Simpan</Button>
+                    <Button type="submit" variant="primary" loading={saving} loadingText="Menyimpan...">Simpan</Button>
                     <Button type="button" variant="secondary" onClick={onCancel} disabled={saving}>Batal</Button>
                 </div>
             </div>
@@ -101,7 +101,7 @@ function EditCategoryRow({ category, onSave, onCancel }) {
                 {error && <p className="mt-1.5 text-xs text-red-600" role="alert">{error}</p>}
             </div>
             <div className="flex gap-2">
-                <Button type="submit" variant="dark" size="sm" loading={saving} loadingText="Menyimpan...">Simpan</Button>
+                <Button type="submit" variant="primary" size="sm" loading={saving} loadingText="Menyimpan...">Simpan</Button>
                 <Button type="button" variant="secondary" size="sm" onClick={onCancel} disabled={saving}>Batal</Button>
             </div>
         </form>
@@ -243,7 +243,7 @@ export default function CategoryList() {
                                             disabled={count > 0}
                                             aria-label={`Hapus kategori ${category.name}`}
                                             title={count > 0 ? 'Tidak bisa dihapus — masih ada item' : 'Hapus'}
-                                            className="w-9 h-9 inline-flex items-center justify-center rounded-[10px] text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400 transition-colors"
+                                            className="w-9 h-9 inline-flex items-center justify-center rounded-[10px] text-text-muted hover:bg-danger-soft hover:text-danger disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400 transition-colors"
                                         >
                                             <Icon name="trash" className="w-4 h-4" />
                                         </button>
